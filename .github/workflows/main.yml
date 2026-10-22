@@ -29,7 +29,7 @@ jobs:
         run: npm install
 
       - name: Compilar IRONLab
-        run: npm run tauri build
+        run: npx --no--install tauri build
 
       - name: Disponibilizar instaladores
         uses: actions/upload-artifact@v4
