@@ -1,3 +1,4 @@
+
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "IRONLab",
@@ -12,7 +13,7 @@
   "app": {
     "windows": [
       {
-        "title": "IRONLab \u2014 MCI Lab",
+        "title": "IRONLab — MCI Lab",
         "width": 1440,
         "height": 900,
         "minWidth": 900,
@@ -28,6 +29,9 @@
     "targets": [
       "nsis",
       "msi"
+    ],
+    "icon": [
+      "icons/icon.ico"
     ]
   }
 }
