@@ -1,0 +1,401 @@
+/* =========================================
+   FTC ELECTRICAL LAB — PROTOTYPE 0.13.4
+   FICHA DO ATUADOR
+   ========================================= */
+
+.actuator-panel {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 100;
+  width: min(420px, calc(100vw - 40px));
+  max-height: calc(100% - 40px);
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 20px;
+  background: #080d0a;
+  border: 1px solid #294431;
+  border-radius: 10px;
+  color: #e9f5ec;
+  box-shadow: 0 20px 55px rgba(0, 0, 0, 0.6);
+}
+
+.actuator-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.actuator-eyebrow {
+  color: #4ade80;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.6px;
+}
+
+.actuator-panel-header h2 {
+  margin: 6px 0 4px;
+  font-size: 22px;
+}
+
+.actuator-panel-header small {
+  color: #a2b4a7;
+  font-size: 12px;
+}
+
+.actuator-close {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  background: #121d15;
+  border: 1px solid #294431;
+  border-radius: 6px;
+  color: #e9f5ec;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.actuator-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 20px 0;
+}
+
+.actuator-summary > div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  padding: 10px;
+  background: #121c15;
+  border: 1px solid #233a2a;
+  border-radius: 6px;
+}
+
+.actuator-summary span {
+  color: #7da388;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.actuator-summary strong {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.actuator-port {
+  color: #4ade80;
+}
+
+.actuator-tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #263b2c;
+}
+
+.actuator-tabs button {
+  flex: 0 0 auto;
+  padding: 9px 10px;
+  background: #111a13;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: #a5b7a9;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.actuator-tabs button.active {
+  background: #174b2b;
+  border-color: #328e51;
+  color: #dcffe6;
+}
+
+.actuator-tab-count {
+  display: inline-block;
+  min-width: 17px;
+  margin-left: 5px;
+  padding: 2px 4px;
+  background: #9c3c20;
+  border-radius: 20px;
+  color: #fff;
+  font-size: 9px;
+  text-align: center;
+}
+
+.actuator-panel-content {
+  padding-top: 14px;
+}
+
+.actuator-section h3 {
+  margin: 0 0 12px;
+  font-size: 14px;
+}
+
+.actuator-section h4 {
+  margin: 0 0 12px;
+  font-size: 12px;
+}
+
+.actuator-section label {
+  display: block;
+  margin: 12px 0 6px;
+  color: #b0c3b4;
+  font-size: 11px;
+}
+
+.actuator-section input,
+.actuator-section textarea,
+.actuator-select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px;
+  background: #040805;
+  border: 1px solid #2b4733;
+  border-radius: 5px;
+  outline: none;
+  color: #f2fff5;
+  font: inherit;
+  font-size: 12px;
+}
+
+.actuator-section textarea {
+  min-height: 90px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.actuator-section input:focus,
+.actuator-section textarea:focus,
+.actuator-select:focus {
+  border-color: #4ade80;
+}
+
+.actuator-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid #203126;
+  font-size: 11px;
+}
+
+.actuator-info > span {
+  flex-shrink: 0;
+  color: #a0b5a6;
+}
+
+.actuator-info strong {
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.actuator-identity {
+  flex-direction: column;
+}
+
+.actuator-identity code {
+  color: #000000;
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+
+.actuator-primary,
+.actuator-danger {
+  width: 100%;
+  padding: 11px;
+  margin-top: 10px;
+  border-radius: 5px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.actuator-primary {
+  background: #4ade80;
+  color: #06120a;
+  border: 1px solid #4ade80;
+}
+
+.actuator-primary:hover:not(:disabled) {
+  background: #86efac;
+}
+
+.actuator-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.actuator-danger {
+  background: transparent;
+  color: #fca5a5;
+  border: 1px solid #753737;
+}
+
+.actuator-danger:hover {
+  background: #310d0d;
+}
+
+.actuator-muted {
+  color: #91a797;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.actuator-count {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  background: #111b14;
+  border-radius: 6px;
+}
+
+.actuator-count strong {
+  color: #4ade80;
+  font-size: 24px;
+}
+
+.actuator-count span {
+  color: #a5b7a9;
+  font-size: 12px;
+}
+
+.actuator-issue-form {
+  margin-top: 16px;
+  padding: 14px;
+  background: #101a13;
+  border: 1px solid #294431;
+  border-radius: 8px;
+}
+
+.actuator-record-list {
+  margin-top: 20px;
+}
+
+.actuator-record {
+  padding: 12px;
+  margin-top: 8px;
+  background: #111b14;
+  border: 1px solid #294431;
+  border-radius: 6px;
+}
+
+.actuator-record-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.actuator-record-heading strong {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.actuator-record small {
+  display: block;
+  margin-top: 6px;
+  color: #8aa792;
+  font-size: 10px;
+}
+
+.actuator-record p {
+  margin: 10px 0;
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.actuator-status {
+  flex-shrink: 0;
+  padding: 4px 7px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.status-open {
+  background: #47201b;
+  color: #ffb4a5;
+}
+
+.status-monitoring {
+  background: #4a3b17;
+  color: #f9db87;
+}
+
+.status-resolved {
+  background: #153d25;
+  color: #86efac;
+}
+
+.actuator-record-delete {
+  display: block;
+  margin-top: 12px;
+  padding: 7px 0;
+  background: transparent;
+  border: 0;
+  color: #fca5a5;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.actuator-record-delete:hover {
+  text-decoration: underline;
+}
+
+.actuator-related-issue {
+  padding: 10px;
+  background: #17261b;
+  border-left: 3px solid #4ade80;
+  border-radius: 4px;
+  color: #b8d9c0;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.actuator-related-issue strong {
+  color: #e3ffe9;
+}
+
+@media (max-width: 600px) {
+  .actuator-panel {
+    top: 8px;
+    right: 8px;
+    width: calc(100vw - 16px);
+    max-height: calc(100% - 16px);
+    padding: 14px;
+  }
+}
+
+.motor-profile-stage { display:flex; align-items:center; gap:10px; padding:9px; color:#d7e9da; }
+.motor-profile-stage input { width:auto; accent-color:#4ade80; }
+
+/* ===== INSPECTOR v0.27.0 ===== */
+.actuator-panel {top:14px;right:14px;width:min(470px,calc(100vw - 28px));
+ max-height:calc(100% - 28px);padding:24px; background:#0b1510;
+ border:1px solid #365440;border-radius:16px;
+ box-shadow:-12px 20px 70px rgba(0,0,0,.63);
+ scrollbar-width:thin;scrollbar-color:#3a6649 #0c1811;}
+.actuator-panel-header {padding-bottom:15px;border-bottom:1px solid #253e2e;}
+.actuator-eyebrow {color:#79e3a1;letter-spacing:1.3px;}
+.actuator-panel-header h2 {font-size:24px;letter-spacing:-.6px;color:#f1f8f2;}
+.actuator-close {width:36px;height:36px;border-radius:9px;}
+.actuator-summary {gap:10px;margin:17px 0 20px;}
+.actuator-summary > div {min-height:75px;padding:14px;border-radius:9px;
+ border-color:#304b37;background:#122219;}
+.actuator-summary span {color:#8cb89a;}
+.actuator-summary strong {font-size:13px;}
+.actuator-tabs {gap:7px;flex-wrap:wrap;overflow-x:visible;padding-bottom:12px;}
+.actuator-tabs button {flex:1 1 auto;padding:10px 11px;min-height:38px;
+ border-radius:8px;background:#132018;}
+.actuator-tabs button.active {background:#195331;border-color:#3d9860;}
+.actuator-panel-content {padding-top:14px;}
+.actuator-section input,.actuator-section textarea,.actuator-select {border-radius:8px;}
+@media(max-width:520px){.actuator-panel{padding:16px}.actuator-tabs button{font-size:10px}}

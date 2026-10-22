@@ -1,0 +1,114 @@
+.iron-login{min-height:100vh;display:grid;place-items:center;background:radial-gradient(circle at 50% 0%,#10261a,#050907 65%);color:#f0fff4;font:14px system-ui,sans-serif;padding:20px}.iron-login-card{display:grid;gap:17px;width:min(430px,100%);padding:38px;background:#101a14;border:1px solid #315640;border-radius:14px;box-shadow:0 30px 90px #0009}.iron-login-card h1{font-size:42px;letter-spacing:-2px;margin:0}.iron-login-card h1 span{color:#54d88b}.iron-brand small,.iron-admin header small{letter-spacing:2px;color:#74a989;font-size:10px}.iron-login-card h2{font-size:18px;margin:8px 0 0}.iron-login-card label{display:grid;gap:8px;color:#b7cdbd}.iron-login-card input,.iron-invite input,.iron-invite select,.iron-password input,.iron-user-row select{background:#080f0a;color:#f4fff5;border:1px solid #375442;border-radius:7px;padding:12px;min-width:0}.iron-login button,.iron-user-bar button,.iron-admin button{background:#164e2e;color:#c8ffdd;border:1px solid #347c51;border-radius:7px;padding:11px 14px;cursor:pointer;font-weight:600}.iron-login button:disabled,.iron-admin button:disabled{opacity:.5;cursor:not-allowed}.iron-login button.iron-link{background:none;border:none;color:#8ed8a8;padding:4px}.iron-hint{color:#86a390;font-size:12px;text-align:center}.iron-error{background:#4a1d21;color:#ffd6d6;padding:12px;border-radius:7px;overflow-wrap:anywhere}.iron-notice{background:#173c26;color:#c6fbd8;padding:12px;border-radius:7px}.iron-user-bar{position:fixed;bottom:12px;right:12px;z-index:1100;display:flex;gap:9px;align-items:center;padding:8px;background:#0d1a12;border:1px solid #345a41;border-radius:10px;box-shadow:0 12px 30px #0009;color:#f4fff5;font:12px system-ui}.iron-user-bar span{display:grid;gap:2px}.iron-user-bar small{color:#83bb97}.iron-user-bar button{padding:7px 9px;font-size:11px}.iron-overlay{position:fixed;inset:0;z-index:2000;display:grid;place-items:center;background:#000c;padding:16px}.iron-admin{width:min(900px,100%);max-height:90vh;overflow:auto;padding:26px;background:#0e1912;color:#f4fff5;border:1px solid #3b5c46;border-radius:14px;font:14px system-ui}.iron-admin header{display:flex;align-items:start;justify-content:space-between;gap:12px}.iron-admin h2{margin:6px 0;font-size:24px}.iron-admin header p,.iron-user-row small{color:#95b29e}.iron-users{display:grid;gap:8px;margin:22px 0}.iron-user-row{display:grid;grid-template-columns:minmax(0,1fr) 170px 100px;gap:10px;align-items:center;background:#18271d;border-radius:8px;padding:12px}.iron-user-row div{display:grid;gap:5px;min-width:0}.iron-user-row small{font-size:11px}.iron-admin h3{margin-top:24px}.iron-invite{display:grid;grid-template-columns:1fr 1fr 150px auto;gap:8px}.iron-password{display:flex;gap:8px}.iron-password input{flex:1}@media(max-width:700px){.iron-user-row{grid-template-columns:1fr 1fr}.iron-user-row div{grid-column:1/-1}.iron-invite{grid-template-columns:1fr}.iron-user-bar{max-width:calc(100vw - 24px);flex-wrap:wrap}.iron-password{flex-direction:column}}
+
+/* ===== IRONLab login and administration v0.28.3 ===== */
+.iron-login{background:radial-gradient(ellipse at 50% 0%,#10271a 0%,#080d0a 55%,#050806 100%);color:#f5f7f5}
+.iron-login-card{background:#101913;border-color:#2b503a;box-shadow:0 25px 90px #000a;padding:38px 40px;gap:18px}
+.iron-brand{display:flex;flex-direction:column;align-items:center;gap:13px;text-align:center}
+.iron-login-logo{display:block;width:min(100%,340px);height:auto;max-height:135px;object-fit:contain}
+.iron-brand small{font-weight:700;letter-spacing:2.1px;color:#9fbba9}
+.iron-login-card h2{font-size:19px;font-weight:650;text-align:center;color:#f2f8f4;margin:5px 0 3px}
+.iron-login-card p:not(.iron-error):not(.iron-notice){color:#b5c8bb}
+.iron-login-card label{font-size:13px;font-weight:650;color:#d6e5da}
+.iron-login-card input{background:#090f0b;color:#f5f7f5;border-color:#365644;min-height:46px;outline:none}
+.iron-login-card input:focus,.iron-invite input:focus,.iron-invite select:focus,.iron-password input:focus,.iron-user-row select:focus{border-color:#00a657;box-shadow:0 0 0 3px #009c5033;outline:none}
+.iron-login-card button[type=submit]{background:#009c50;color:#fff;border-color:#009c50;min-height:46px}
+.iron-login-card button[type=submit]:hover{background:#00b760;border-color:#00b760}
+.iron-login button.iron-link{color:#70dca4}
+.iron-admin{background:#101913;border-color:#31543d;box-shadow:0 30px 100px #000b}
+.iron-admin h2,.iron-admin h3{color:#f5f7f5}
+.iron-user-row{background:#17251b;border:1px solid #294333}
+.iron-user-bar{background:#101913;border-color:#31543d}
+.iron-admin button,.iron-user-bar button{background:#0f3c25;border-color:#257e4b;color:#c9ffdf}
+.iron-admin button:hover:not(:disabled),.iron-user-bar button:hover{background:#155332}
+@media(max-width:500px){.iron-login-card{padding:27px 22px}.iron-login-logo{max-height:100px}}
+
+/* IRONLab v0.28.5 — conta no cabeçalho */
+.iron-user-bar{display:none!important}
+.iron-account-menu{position:fixed;right:20px;top:19px;z-index:1100;color:#edf8f1;font-family:inherit}
+.iron-account-menu summary{display:flex;align-items:center;gap:9px;list-style:none;cursor:pointer;padding:6px 10px;background:#122018;border:1px solid #2d4937;border-radius:9px;min-height:36px;max-width:185px}
+.iron-account-menu summary::-webkit-details-marker{display:none}
+.iron-account-menu summary:hover,.iron-account-menu[open] summary{border-color:#16ac6d;background:#192b20}
+.iron-account-avatar{display:grid;place-items:center;width:27px;height:27px;flex-shrink:0;border-radius:7px;background:#16ac6d;color:#07140c;font-size:12px;font-weight:800}
+.iron-account-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;font-weight:650}
+.iron-account-chevron{color:#a4c3b0}
+.iron-account-dropdown{position:absolute;right:0;top:calc(100% + 9px);width:230px;max-width:calc(100vw - 24px);padding:9px;background:#111b15;border:1px solid #315440;border-radius:12px;box-shadow:0 18px 40px #0009;display:grid;gap:5px}
+.iron-account-info{display:flex;flex-direction:column;gap:4px;padding:10px 9px 12px;border-bottom:1px solid #2a4434;margin-bottom:3px}
+.iron-account-info strong{font-size:12px;overflow-wrap:anywhere}.iron-account-info small{font-size:11px;color:#9ebca8}
+.iron-account-dropdown button{display:block;width:100%;text-align:left;padding:10px 11px;border:1px solid transparent;border-radius:7px;background:transparent;color:#e0f2e6;cursor:pointer;font:inherit;font-size:12px}
+.iron-account-dropdown button:hover{background:#1b3827;border-color:#16ac6d}
+@media(max-width:1600px){.iron-account-menu{right:12px;top:18px}.iron-account-menu summary{max-width:160px}}
+@media(max-width:760px){.iron-account-menu{top:13px;right:12px}.iron-account-menu summary{max-width:130px}.iron-account-name{display:none}}
+
+
+/* ================================================================
+   IRONLab v0.28.6 | Menu de conta e administração
+   ================================================================ */
+.iron-account-menu {position:fixed;right:20px;top:28px;z-index:1200;color:#edf8f1;}
+.iron-account-menu summary {
+  display:flex;align-items:center;gap:10px;padding:7px 11px 7px 7px;
+  min-height:42px;max-width:190px;border:1px solid #31503d;border-radius:10px;
+  background:#111e16;box-shadow:0 4px 16px #0002;transition:border-color .18s,background .18s;
+}
+.iron-account-menu summary:focus-visible {outline:2px solid #16ac6d;outline-offset:3px;}
+.iron-account-avatar {width:30px;height:30px;border-radius:8px;background:#16ac6d;color:#06140b;font-size:13px;}
+.iron-account-name {max-width:112px;font-size:11px;}
+.iron-account-chevron {margin-left:auto;font-size:15px;}
+.iron-account-menu[open] .iron-account-chevron {transform:rotate(180deg);}
+.iron-account-dropdown {
+  width:294px;padding:10px;gap:6px;border-radius:13px;
+  background:#101a13;border:1px solid #345441;box-shadow:0 24px 70px #000b;
+}
+.iron-account-info {display:flex;flex-direction:row;align-items:center;gap:11px;padding:11px 9px 15px;}
+.iron-account-info>div {display:flex;flex-direction:column;min-width:0;gap:4px;}
+.iron-account-avatar-large {width:40px;height:40px;font-size:17px;}
+.iron-account-info strong {font-size:13px;line-height:1.2;}
+.iron-account-info small {font-size:11px;}
+.iron-account-email {font-size:10px!important;color:#799985!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:192px;}
+.iron-account-dropdown button {padding:12px 11px;font-weight:600;}
+.iron-account-dropdown button:last-child {color:#efb6b6;border-top:1px solid #27392d;border-radius:0;margin-top:3px;}
+.iron-account-dropdown button:last-child:hover {background:#331e21;border-color:#6c3439;}
+.iron-overlay {background:rgba(1,7,3,.82);backdrop-filter:blur(5px);padding:22px;}
+.iron-admin {
+  width:min(990px,100%);max-height:min(90vh,900px);padding:0;
+  background:#0e1711;border:1px solid #365440;border-radius:16px;
+  box-shadow:0 32px 100px #000c;
+}
+.iron-admin>header {
+  position:sticky;top:0;z-index:1;display:flex;align-items:center;
+  padding:25px 30px;background:#111e16;border-bottom:1px solid #2d4735;
+  border-radius:16px 16px 0 0;
+}
+.iron-admin>header h2 {font-size:24px;letter-spacing:-.03em;margin:7px 0;}
+.iron-admin>header p {margin:0;color:#9db5a3;font-size:12px;}
+.iron-admin>header button {background:transparent;border-color:#3a5541;color:#dce8df;}
+.iron-admin>h3,.iron-admin>form,.iron-admin>.iron-users,.iron-admin>.iron-admin-section-heading,.iron-admin>.iron-error,.iron-admin>.iron-notice {margin-left:30px;margin-right:30px;}
+.iron-admin-section-heading {display:flex;align-items:center;justify-content:space-between;margin-top:24px;}
+.iron-admin-section-heading h3 {font-size:15px;margin:0 0 4px;color:#eff9f2;}
+.iron-admin-section-heading p {font-size:11px;color:#91ae9b;margin:0;}
+.iron-admin .iron-users {margin-top:14px;margin-bottom:26px;gap:7px;}
+.iron-admin .iron-user-row {
+  grid-template-columns:minmax(0,1fr) 175px 104px;
+  background:#142219;border:1px solid #294333;border-radius:9px;
+  padding:13px 14px;gap:12px;
+}
+.iron-admin .iron-user-row strong {font-size:13px;}
+.iron-admin .iron-user-row small {font-size:11px;}
+.iron-admin .iron-user-row select {padding:10px;}
+.iron-admin-section-title {padding-top:22px;border-top:1px solid #2a4332;font-size:15px;}
+.iron-admin .iron-invite {grid-template-columns:minmax(0,1fr) minmax(0,1.1fr) 145px auto;}
+.iron-admin .iron-password {padding-bottom:28px;}
+.iron-admin button:not(:disabled):hover {border-color:#16ac6d;}
+@media(max-width:1600px){.iron-account-menu {top:28px;right:14px;}.iron-account-menu summary {max-width:174px;}}
+@media(max-width:1130px){.iron-account-menu {top:14px;right:18px;}}
+@media(max-width:760px){
+  .iron-account-menu {top:13px;right:12px;}
+  .iron-account-menu summary {max-width:115px;}
+  .iron-account-dropdown {width:min(294px,calc(100vw - 24px));}
+  .iron-admin {max-height:94vh;}
+  .iron-admin>header {padding:20px;}
+  .iron-admin>h3,.iron-admin>form,.iron-admin>.iron-users,.iron-admin>.iron-admin-section-heading,.iron-admin>.iron-error,.iron-admin>.iron-notice {margin-left:18px;margin-right:18px;}
+  .iron-admin .iron-user-row {grid-template-columns:1fr 1fr;}
+  .iron-admin .iron-user-row>div {grid-column:1/-1;}
+  .iron-admin .iron-invite {grid-template-columns:1fr;}
+  .iron-admin .iron-password {flex-direction:column;}
+}

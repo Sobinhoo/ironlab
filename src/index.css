@@ -1,0 +1,3 @@
+/* IRONLab global foundation — replaces the Vite starter stylesheet */
+:root{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;font-synthesis:none;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;color-scheme:dark;color:#f5f7f5;background:#080b09;--iron-bg:#080b09;--iron-surface:#101813;--iron-surface-raised:#18241c;--iron-primary:#009c50;--iron-primary-hover:#00b760;--iron-text:#f5f7f5;--iron-text-muted:#9db1a4;--iron-border:#294133}
+*{box-sizing:border-box}html,body,#root{margin:0;min-width:0;min-height:100%;width:100%}body{min-height:100vh}#root{min-height:100vh}button,input,select,textarea{font:inherit}button{cursor:pointer}h1,h2,h3,h4,p{color:inherit}a{color:#6bdda1}::selection{background:#009c5070;color:white}
