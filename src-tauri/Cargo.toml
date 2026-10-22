@@ -1,0 +1,16 @@
+[package]
+name = "ironlab"
+version = "0.30.0"
+description = "IRONLab Engineering Workspace"
+authors = ["MCI Lab"]
+edition = "2021"
+
+[lib]
+name = "ironlab_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }

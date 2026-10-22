@@ -14,6 +14,8 @@ import {
 import '@xyflow/react/dist/style.css';
 
 import './App.css';
+import './workspace.css';
+import WorkspaceTools from './components/WorkspaceTools';
 
 import ControlHubNode from './components/ControlHubNode';
 
@@ -179,11 +181,21 @@ function App() {
     savedProject ? 'Projeto restaurado' : 'Novo projeto'
   );
 
+  useEffect(() => { setProjectRevision(n => n + 1); }, [nodes, edges, robotName, actuatorHistory]);
+
   // TELEMETRIA VOLÁTIL: não entra no salvamento automático.
 
   const [liveServos, setLiveServos] = useState<LiveServo[]>([]);
 
   const [batteryVoltage, setBatteryVoltage] = useState<number | null>(null);
+  const [snapToGrid, setSnapToGrid] = useState(() => localStorage.getItem('ironlab-snap') === 'true');
+  const [gridVisible, setGridVisible] = useState(() => localStorage.getItem('ironlab-grid') !== 'false');
+  const [batteryWarning, setBatteryWarning] = useState(() => Number(localStorage.getItem('ironlab-warning') || '12.5'));
+  const [batteryCritical, setBatteryCritical] = useState(() => Number(localStorage.getItem('ironlab-critical') || '11.5'));
+  const [pingMs, setPingMs] = useState<number | null>(null);
+  const [projectRevision, setProjectRevision] = useState(0);
+  const [savedRevision, setSavedRevision] = useState(0);
+  const [saveError, setSaveError] = useState('');
 
   const [hubPort, setHubPort] = useState(
     () => window.localStorage.getItem('ftc-electrical-lab-http-port') ?? '8765'
@@ -547,6 +559,7 @@ function App() {
     }
 
     const timeout = window.setTimeout(() => {
+      try {
       saveProject({
         schemaVersion: SCHEMA_VERSION,
 
@@ -569,7 +582,10 @@ function App() {
         actuators: actuatorHistory,
       });
 
-      setSaveStatus('Salvo automaticamente');
+      setSaveStatus('Salvo localmente');
+      setSavedRevision(projectRevision);
+      setSaveError('');
+      } catch (error) { setSaveError(error instanceof Error ? error.message : 'Falha ao salvar'); setSaveStatus('Erro no salvamento'); }
     }, 250);
 
     return () => window.clearTimeout(timeout);
@@ -1423,39 +1439,55 @@ function App() {
 
   // =====================================================
 
+  useEffect(() => {
+    if (liveStatus !== 'connected') { setPingMs(null); return; }
+    let cancelled = false;
+    const measure = async () => {
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 2500);
+      const started = performance.now();
+      try {
+        const response = await fetch(`http://${hubIp}:${hubPort}/`, { cache: 'no-store', signal: controller.signal });
+        if (response.ok && !cancelled) setPingMs(Math.round(performance.now() - started));
+      } catch { if (!cancelled) setPingMs(null); }
+      finally { clearTimeout(timeout); }
+    };
+    void measure();
+    const interval = window.setInterval(() => void measure(), 5000);
+    return () => { cancelled = true; window.clearInterval(interval); };
+  }, [liveStatus, hubIp, hubPort]);
+
+  function currentSnapshot() {
+    return {
+      schemaVersion: SCHEMA_VERSION,
+      robot: { id: robotId, name: robotName, createdAt: robotCreatedAt, updatedAt: new Date().toISOString() },
+      ftcConfigurationName, nodes, edges, actuators: actuatorHistory,
+    };
+  }
+  function openSnapshot(snapshot: ReturnType<typeof currentSnapshot>) {
+    if (snapshot.schemaVersion !== SCHEMA_VERSION || !Array.isArray(snapshot.nodes) || !Array.isArray(snapshot.edges)) {
+      throw new Error('Projeto incompatível.');
+    }
+    setRobotId(snapshot.robot.id);
+    setRobotName(snapshot.robot.name);
+    setRobotCreatedAt(snapshot.robot.createdAt);
+    setFtcConfigurationName(snapshot.ftcConfigurationName);
+    setNodes(snapshot.nodes);
+    setEdges(snapshot.edges);
+    setActuatorHistory(snapshot.actuators);
+    setSelectedNodeId(null);
+    setSaveStatus('Projeto carregado');
+  }
+
   return (
     <div className="flow-app">
-      <header className="topbar">
+      <header className="topbar iron-toolbar-v029">
         <div className="iron-header-brand">
           <img src="/branding/ironlab-logo.png" alt="IRONLab — MCI Lab" className="iron-header-logo" />
-          <span className="version">VERSÃO 0.28.7</span>
+          <span className="version">VERSÃO 0.30.0</span>
         </div>
-
-        <div className="topbar-actions">
-          <div className="toolbar-group toolbar-navigation" aria-label="Áreas de trabalho">
-          <button
-            type="button"
-            className="add-hub-button"
-            onClick={() => setSessionsOpen(true)}
-          >
-            SESSÕES DE TESTE
-            {activeSession
-              ? ` • GRAVANDO (${activeSession.samples.length})`
-              : ''}
-          </button>
-          <button
-            type="button"
-            className="add-hub-button"
-            onClick={() => setDiagnosticCenterOpen(true)}
-          >
-            CENTRAL DE DIAGNÓSTICOS
-            {liveStatus === 'connected' &&
-            Object.values(diagnostics).some((d) => d.active)
-              ? ' ⚠'
-              : ''}
-          </button>
-
-          </div>
+        <div className="iron-toolbar-content">
+          <div className="iron-toolbar-upper">
           <div className="toolbar-group toolbar-status" aria-label="Estado do robô">
           <button
             type="button"
@@ -1513,6 +1545,32 @@ function App() {
           <span className="save-indicator">● {saveStatus}</span>
 
           </div>
+          </div>
+          <div className="iron-toolbar-lower">
+          <div className="toolbar-group toolbar-navigation" aria-label="Áreas de trabalho">
+          <button
+            type="button"
+            className="add-hub-button"
+            onClick={() => setSessionsOpen(true)}
+          >
+            SESSÕES DE TESTE
+            {activeSession
+              ? ` • GRAVANDO (${activeSession.samples.length})`
+              : ''}
+          </button>
+          <button
+            type="button"
+            className="add-hub-button"
+            onClick={() => setDiagnosticCenterOpen(true)}
+          >
+            CENTRAL DE DIAGNÓSTICOS
+            {liveStatus === 'connected' &&
+            Object.values(diagnostics).some((d) => d.active)
+              ? ' ⚠'
+              : ''}
+          </button>
+
+          </div>
           <div className="toolbar-group toolbar-project" aria-label="Gerenciar projeto">
           <label className="import-button">
             IMPORTAR FTC
@@ -1548,9 +1606,27 @@ function App() {
             onChange={(event) => setRobotName(event.target.value)}
           />
           </div>
+          </div>
         </div>
       </header>
-
+      <WorkspaceTools
+        robotName={robotName}
+        saveStatus={saveError || (projectRevision > savedRevision ? 'Alterações locais' : saveStatus)}
+        snapshot={currentSnapshot()}
+        onOpenProject={openSnapshot}
+        onRename={setRobotName}
+        snapToGrid={snapToGrid}
+        onSnapChange={(value) => {setSnapToGrid(value);localStorage.setItem('ironlab-snap', String(value));}}
+        gridVisible={gridVisible}
+        onGridChange={(value) => {setGridVisible(value);localStorage.setItem('ironlab-grid', String(value));}}
+        hubIp={hubIp} onHubIpChange={setHubIp}
+        hubPort={hubPort} onHubPortChange={setHubPort}
+        pingMs={pingMs} connected={liveStatus === 'connected'}
+        voltage={batteryVoltage}
+        warning={batteryWarning} critical={batteryCritical}
+        onThresholdsChange={(warning, critical) => {setBatteryWarning(warning);setBatteryCritical(critical);localStorage.setItem('ironlab-warning', String(warning));localStorage.setItem('ironlab-critical', String(critical));}}
+        onSave={() => {try {saveProject(currentSnapshot());setSavedRevision(projectRevision);setSaveStatus('Salvo localmente');setSaveError('');}catch(e){setSaveError(String(e));}}}
+      />
       {connectionPanelOpen && (
         <section
           aria-label="Conectividade do robô"
@@ -2181,10 +2257,12 @@ function App() {
           onEdgesChange={onEdgesChange}
           onNodeClick={onNodeClick}
           fitView
+          snapToGrid={snapToGrid}
+          snapGrid={[20, 20]}
           minZoom={0.3}
           maxZoom={2}
         >
-          <Background gap={20} size={1} />
+          {gridVisible && <Background gap={20} size={1} />}
 
           <Controls />
         </ReactFlow>
