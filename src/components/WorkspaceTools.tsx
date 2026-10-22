@@ -25,6 +25,21 @@ export default function WorkspaceTools(p: Props) {
   const [theme, setTheme] = useState(localStorage.getItem('ironlab-theme') || 'dark');
   const [notice, setNotice] = useState('');
   const [logs, setLogs] = useState<string[]>([]);
+  // Atalhos globais do workspace: evita o diálogo de salvar página do navegador.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setPanel(current => current === null ? current : null);
+        return;
+      }
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+        event.preventDefault();
+        p.onSave();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [p.onSave]);
   useEffect(() => {
     const entry = `${new Date().toLocaleTimeString()} · ${p.connected ? 'Hub conectado' : 'Hub desconectado'} · ${p.pingMs ?? '—'} ms`;
     setLogs(prev => prev.at(-1) === entry ? prev : [...prev.slice(-39), entry]);
@@ -95,7 +110,7 @@ export default function WorkspaceTools(p: Props) {
           <p>Portas de motor M0–M3; servos S0–S5; conexões de encoder, I²C, digital e analógico. Confira orientação, pinagem e tensão na documentação oficial antes de conectar componentes.</p>
           <a href="https://docs.revrobotics.com/duo-control/" target="_blank" rel="noreferrer">Documentação REV DUO ↗</a>
           <a href="https://docs.revrobotics.com/duo-control/control-system-overview/control-hub-basics" target="_blank" rel="noreferrer">Control Hub — documentação ↗</a>
-          <h3>Atalhos</h3><p>Arraste para mover nós; use a roda do mouse para zoom; use os controles do mapa para ajustar a visualização.</p>
+          <h3>Atalhos</h3><p><strong>Ctrl+S</strong> (ou Cmd+S no macOS): salvar o projeto atual. <strong>Esc</strong>: fechar o painel lateral. Arraste para mover nós; use a roda do mouse para zoom; use os controles do mapa para ajustar a visualização.</p>
           <h3>Registro local de conexão</h3><pre className="iron-connection-log">{logs.join('\n') || 'Sem eventos nesta sessão.'}</pre>
           <button onClick={() => {const blob=new Blob([logs.join('\n')],{type:'text/plain'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='ironlab-connection-log.txt';a.click();URL.revokeObjectURL(url);}}>Exportar log</button>
           <p className="iron-panel-hint">O registro acima é local e temporário. Não substitui logs do Robot Controller.</p>
