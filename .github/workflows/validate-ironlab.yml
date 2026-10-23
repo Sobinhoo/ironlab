@@ -13,6 +13,9 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-      - run: npm ci
+      # Temporary: package-lock.json predates the Tauri CLI dependency.
+      # npm install resolves it on the runner; commit a regenerated lockfile
+      # and switch back to npm ci before merging.
+      - run: npm install --no-audit --no-fund
       - run: npm run build
       - run: npm run lint
