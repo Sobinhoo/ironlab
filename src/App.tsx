@@ -122,7 +122,9 @@ import {
   type SessionSample,
 } from './utils/testSessions';
 
+import ASBIPanel from './components/ASBIPanel';
 function App() {
+  const [asbiOpen, setAsbiOpen] = useState(false);
   // =====================================================
 
   // CARREGAMENTO DO PROJETO
@@ -2249,6 +2251,22 @@ function App() {
           />
         )}
 
+        <button type="button" onClick={() => setAsbiOpen(value => !value)} aria-label="Abrir ou fechar ASBI" style={{ position: 'absolute', zIndex: 49, right: 16, top: 20, background: '#1e4730', color: '#e4f6e9', border: '1px solid #4b8060', padding: '9px 16px', borderRadius: 10, cursor: 'pointer' }}>ASBI</button>
+        {asbiOpen && <ASBIPanel
+          onClose={() => setAsbiOpen(false)}
+          context={{
+            robotName,
+            telemetryConnected: liveStatus === 'connected',
+            capturedAt: new Date().toISOString(),
+            actuators: nodes.filter(node => node.type === 'motor' || node.type === 'servo').map(node => ({
+              id: node.id,
+              name: String(node.data.name ?? node.id),
+              type: node.type === 'servo' ? 'servo' as const : 'motor' as const,
+              port: typeof node.data.port === 'number' ? node.data.port : undefined,
+              hubName: String(nodes.find(hub => hub.id === node.data.hubId)?.data.name ?? 'Hub não identificado'),
+            })),
+          }}
+        />}
         <ReactFlow
           nodes={flowNodes}
           edges={edges}
