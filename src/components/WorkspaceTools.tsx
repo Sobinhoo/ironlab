@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { SavedProject } from '../utils/projectStorage';
+import CloudProjects from './CloudProjects';
 
 type Props = {
   robotName: string; saveStatus: string; snapshot: SavedProject;
@@ -78,7 +79,8 @@ export default function WorkspaceTools(p: Props) {
           <div className="iron-panel-actions"><button onClick={exportJson}>Exportar JSON</button><label className="iron-file-button">Importar JSON<input hidden type="file" accept=".json" onChange={e => {void importJson(e.target.files?.[0]);e.target.value='';}} /></label></div>
           <h3>Biblioteca local ({library.length})</h3><input placeholder="Buscar robôs..." value={search} onChange={e => setSearch(e.target.value)} />
           {library.filter(i => i.name.toLowerCase().includes(search.toLowerCase())).map(i => <div className="iron-project-entry" key={i.id}><div><strong>{i.name}</strong><small>{new Date(i.updatedAt).toLocaleString()}</small></div><div><button onClick={() => {p.onOpenProject(i.project);setPanel(null);}}>Abrir</button><button title="Excluir da biblioteca" onClick={() => {if(confirm(`Excluir ${i.name} da biblioteca local?`)) persist(library.filter(x => x.id !== i.id));}}>×</button></div></div>)}
-          <p className="iron-panel-hint">A biblioteca usa o armazenamento deste navegador. Para transferência ou backup, exporte o JSON. Ainda não há sincronização de projetos com Supabase.</p>
+          <p className="iron-panel-hint">A biblioteca local permanece neste dispositivo. A sincronização com Supabase é manual e independente.</p>
+          <CloudProjects snapshot={p.snapshot} onOpenProject={p.onOpenProject} />
         </div>}
         {panel === 'settings' && <div className="iron-panel-section">
           <h3>Área de trabalho</h3>
