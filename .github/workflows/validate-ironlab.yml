@@ -19,3 +19,5 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: npm run build
       - run: npm run lint
+      - run: node --experimental-strip-types --test tests/*.test.mjs
+
