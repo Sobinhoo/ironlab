@@ -12,6 +12,7 @@ export default function CloudProjects({ snapshot, onOpenProject }: Props) {
   const [teamId, setTeamId] = useState('');
   const [projects, setProjects] = useState<CloudProject[]>([]);
   const [current, setCurrent] = useState<CloudProject | null>(null);
+  const [conflict, setConflict] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -63,8 +64,8 @@ export default function CloudProjects({ snapshot, onOpenProject }: Props) {
   }, [credentials, teamId]);
 
   async function run(action: () => Promise<void>) {
-    setBusy(true); setError(''); setNotice('');
-    try { await action(); } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    setBusy(true); setError(''); setNotice(''); setConflict(false);
+    try { await action(); } catch (e) { const message = e instanceof Error ? e.message : String(e); setError(message); setConflict(/Revision conflict|40001|409|conflito/i.test(message)); }
     finally { setBusy(false); }
   }
 
@@ -73,6 +74,7 @@ export default function CloudProjects({ snapshot, onOpenProject }: Props) {
     <p>Sincronização manual. Salvar localmente não envia alterações à nuvem.</p>
     {error && <p className="iron-cloud-error" role="alert">{error}</p>}
     {notice && <p className="iron-cloud-notice" role="status">{notice}</p>}
+    {conflict && <div className="iron-cloud-current" role="alert"><strong>Outra pessoa salvou uma versão mais recente.</strong><p>Exporte o seu projeto como JSON antes de abrir a versão atualizada. O IRONLab não mescla alterações automaticamente.</p><button disabled={busy} onClick={() => void run(refreshProjects)}>Atualizar projetos</button></div>}
     <label>Equipe
       <select value={teamId} disabled={busy} onChange={e => { setTeamId(e.target.value); setCurrent(null); }}>
         <option value="">Selecione uma equipe</option>
