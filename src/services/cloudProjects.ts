@@ -43,12 +43,16 @@ export function createCloudProject(auth: Credentials, teamId: string, document: 
   });
 }
 
-/** Optimistic locking: prevents overwriting a teammate's newer revision. */
-export async function updateCloudProject(auth: Credentials, project: CloudProject, document: SavedProject, userId: string) {
-  const rows = await request<CloudProject[]>(auth,
-    'iron_projects?id=eq.' + encodeURIComponent(project.id) + '&revision=eq.' + project.revision + '&select=id,team_id,name,revision,updated_at,document',
-    { method: 'PATCH', headers: { Prefer: 'return=representation' },
-      body: JSON.stringify({ document, name: document.robot.name, revision: project.revision + 1, updated_by: userId, updated_at: new Date().toISOString() }) });
-  if (rows.length !== 1) throw new Error('Conflito de edição: outro integrante alterou o projeto. Recarregue antes de salvar.');
-  return rows[0];
+/** Atomic compare-and-swap through a server-side transaction and audit revision. */
+export async function updateCloudProject(auth: Credentials, project: CloudProject, document: SavedProject, _userId: string) {
+  const updated = await request<CloudProject>(auth, 'rpc/iron_save_project', {
+    method: 'POST',
+    body: JSON.stringify({
+      p_project_id: project.id,
+      p_expected_revision: project.revision,
+      p_document: document,
+      p_name: document.robot.name,
+    }),
+  });
+  return updated;
 }
