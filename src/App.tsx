@@ -108,6 +108,7 @@ import DiagnosticsCenter from './components/DiagnosticsCenter';
 import { evaluateMotorDiagnostics } from './utils/motorDiagnostics';
 import {
   fetchHubTelemetry,
+  probeHubHealth,
   type LiveMotor,
   type LiveServo,
 } from './services/hubTelemetry';
@@ -366,6 +367,19 @@ function App() {
         consecutiveFailures = 0;
         pollingDelay = profile === 'lab' ? 250 : 1000;
         const now = Date.now();
+        if (status === 'stale') {
+          lastTimestamp = null;
+          lastTimestampSeenAt = 0;
+          setLiveStatus('stale');
+          setLiveError('Control Hub acessível, mas a última telemetria está desatualizada. Verifique o OpMode.');
+          setLiveMotors([]);
+          setLiveServos([]);
+          setBatteryVoltage(null);
+          setLiveUpdatedAt(null);
+          setDiagnostics({});
+          diagnosticTimers.current = {};
+          return;
+        }
         // O servidor pode continuar online depois de o OpMode parar.
         // Não confundir HTTP disponível com telemetria ativa.
         if (status === 'waiting' || timestamp === null) {
@@ -1447,8 +1461,8 @@ function App() {
       const timeout = window.setTimeout(() => controller.abort(), 2500);
       const started = performance.now();
       try {
-        const response = await fetch(`http://${hubIp}:${hubPort}/`, { cache: 'no-store', signal: controller.signal });
-        if (response.ok && !cancelled) setPingMs(Math.round(performance.now() - started));
+        const health = await probeHubHealth(hubIp, Number(hubPort), controller.signal);
+        if (!cancelled) setPingMs(health === 'running' || health === 'legacy' ? Math.round(performance.now() - started) : null);
       } catch { if (!cancelled) setPingMs(null); }
       finally { clearTimeout(timeout); }
     };
