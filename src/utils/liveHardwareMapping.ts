@@ -48,12 +48,12 @@ export function planLiveHardwareMapping(
       const serial = String(h.data.serialNumber ?? '').trim().toLowerCase();
       const moduleAddress = String(h.data.moduleAddress ?? '').trim();
       if (serial.length >= 5 && info.includes(serial)) return true;
-      if (moduleAddress && /^\\d+$/.test(moduleAddress)) {
-        const match = info.match(/module(?:\\s+address)?\\s*[:=#-]?\\s*(\\d+)\\b/);
+      if (moduleAddress && /^\d+$/.test(moduleAddress)) {
+        const match = info.match(/module(?:\s+address)?\s*[:=#-]?\s*(\d+)\b/);
         if (match && match[1] === moduleAddress) return true;
       }
-      if (/\\bcontrol\\s+hub\\b/.test(info) && h.type === 'controlHub') return true;
-      if (/\\bexpansion\\s+hub\\b/.test(info) && h.type === 'expansionHub' &&
+      if (/\bcontrol\s+hub\b/.test(info) && h.type === 'controlHub') return true;
+      if (/\bexpansion\s+hub\b/.test(info) && h.type === 'expansionHub' &&
           hubs.filter(x => x.type === 'expansionHub').length === 1) return true;
       return false;
     });
@@ -62,20 +62,19 @@ export function planLiveHardwareMapping(
     if (hubs.length !== 1) return null;
     const only = hubs[0];
     // Do not attribute an explicitly named external Expansion Hub to a Control Hub.
-    if ((/\\bexpansion\\s+hub\\b/.test(info) && only.type === 'controlHub') ||
-        (/\\bcontrol\\s+hub\\b/.test(info) && only.type !== 'controlHub')) return null;
+    if ((/\bexpansion\s+hub\b/.test(info) && only.type === 'controlHub') ||
+        (/\bcontrol\s+hub\b/.test(info) && only.type !== 'controlHub')) return null;
     return { hub: only, inferred: true };
   }
 
   for (const d of devices) {
     const maxPort = d.kind === 'motor' ? 3 : 5;
-    if (!d.name.trim() || !Number.isInteger(d.port) || d.port < 0 || d.port > maxPort ||
-        (collisions.get(d.kind + ':' + d.port) ?? 0) > 1) {
+    if (!d.name.trim() || !Number.isInteger(d.port) || d.port < 0 || d.port > maxPort) {
       result.unresolved++;
       continue;
     }
     const match = matchingHub(d.connection);
-    if (!match) {
+    if (!match || (match.inferred && (collisions.get(d.kind + ':' + d.port) ?? 0) > 1)) {
       result.unresolved++;
       continue;
     }
