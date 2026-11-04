@@ -16,6 +16,7 @@ export type LiveServo = {
   type: 'standard' | 'continuous';
   position?: number;
   power?: number;
+  connection?: string;
 };
 
 export type HubTelemetry = {
