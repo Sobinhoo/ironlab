@@ -7,6 +7,7 @@ export type LiveMotor = {
   ticksPerRev: number;
   rpm: number;
   power?: number;
+  connection?: string;
 };
 
 export type LiveServo = {
@@ -23,7 +24,7 @@ export type HubTelemetry = {
   voltage: unknown;
   timestamp: number | null;
   profile: 'light' | 'lab' | null;
-  status: 'running' | 'waiting';
+  status: 'running' | 'waiting' | 'stale';
 };
 
 /** Uma requisição HTTP. O agendamento de polling permanece no App.tsx. */
@@ -42,11 +43,14 @@ export async function fetchHubTelemetry(
     throw new Error('Resposta JSON inválida do Control Hub.');
   }
   const payload = data as Record<string, unknown>;
-  if (payload.status !== 'running' && payload.status !== 'waiting') {
+  if (payload.status !== 'running' && payload.status !== 'waiting' && payload.status !== 'stale') {
     throw new Error('Estado desconhecido no servidor de telemetria.');
   }
   if (payload.status === 'running' && !Array.isArray(payload.motors)) {
     throw new Error('Lista de motores ausente ou inválida.');
+  }
+  if (payload.status === 'stale' || payload.fresh === false) {
+    return { status: 'stale', motors: [], servos: [], voltage: null, timestamp: null, profile: null };
   }
   if (payload.status === 'waiting') {
     return {
@@ -98,4 +102,23 @@ export async function fetchHubTelemetry(
     servos,
     voltage: (data as { batteryVoltage?: unknown }).batteryVoltage,
   };
+}
+
+/** Health probe for bridge v2; older bridges return 404 and use the legacy root. */
+export async function probeHubHealth(hubIp: string, port: number, signal: AbortSignal): Promise<'running' | 'waiting' | 'stale' | 'legacy'> {
+  const base = `http://${hubIp.trim()}:${port}`;
+  const response = await fetch(base + '/health', { cache: 'no-store', signal });
+  if (response.status === 404) {
+    const legacy = await fetch(base + '/', { cache: 'no-store', signal });
+    if (!legacy.ok) throw new Error(`HTTP ${legacy.status}`);
+    return 'legacy';
+  }
+  if (!response.ok) throw new Error(`Health HTTP ${response.status}`);
+  const payload: unknown = await response.json();
+  if (!payload || typeof payload !== 'object') throw new Error('Health JSON inválido.');
+  const health = payload as Record<string, unknown>;
+  if (health.status === 'waiting') return 'waiting';
+  if (health.status === 'stale' || health.fresh === false) return 'stale';
+  if (health.status === 'running' && health.fresh === true) return 'running';
+  throw new Error('Estado de saúde desconhecido.');
 }
