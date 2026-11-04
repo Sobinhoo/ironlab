@@ -106,6 +106,7 @@ function createRecordId(): string {
 import SessionGraph from './components/SessionGraph';
 import DiagnosticsCenter from './components/DiagnosticsCenter';
 import { evaluateMotorDiagnostics } from './utils/motorDiagnostics';
+import { planLiveHardwareMapping } from './utils/liveHardwareMapping';
 import {
   fetchHubTelemetry,
   probeHubHealth,
@@ -556,6 +557,31 @@ function App() {
   function disconnectFromHub() {
     setConnectionEnabled(false);
   }
+
+  // A configuração visual é criada apenas uma vez por porta; o polling só atualiza telemetria.
+  // O usuário pode excluir um nó automático sem que ele seja recriado durante esta sessão.
+  const excludedAutoNodes = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (liveStatus !== 'connected') return;
+    const plan = planLiveHardwareMapping(
+      nodes, liveMotors, liveServos, createActuatorId, excludedAutoNodes.current
+    );
+    if (plan.nodes.length === 0) return;
+    setNodes(current => [...current, ...plan.nodes.filter(node =>
+      !current.some(existing => existing.id === node.id ||
+        (existing.type === node.type && existing.data.hubId === node.data.hubId &&
+          Number(existing.data.port) === Number(node.data.port))))]);
+    setEdges(current => [...current, ...plan.edges.filter(edge =>
+      !current.some(existing => existing.id === edge.id))]);
+    setActuatorHistory(current => {
+      const next = { ...current };
+      for (const node of plan.nodes) {
+        const id = String(node.data.actuatorId);
+        if (!next[id]) next[id] = createEmptyHistory(id);
+      }
+      return next;
+    });
+  }, [liveStatus, liveMotors, liveServos, nodes, setNodes, setEdges]);
 
   // =====================================================
 
@@ -1251,6 +1277,8 @@ function App() {
     if (!selectedNodeId) return;
 
     // Preserva o histórico por actuatorId.
+    const deleting = nodes.find(node => node.id === selectedNodeId);
+    if (deleting?.data.source === 'http-telemetry') excludedAutoNodes.current.add(selectedNodeId);
 
     setNodes((current) => current.filter((node) => node.id !== selectedNodeId));
 
@@ -1279,6 +1307,7 @@ function App() {
     if (!confirmed) return;
 
     deleteSavedProject();
+    excludedAutoNodes.current.clear();
 
     const now = new Date().toISOString();
 
