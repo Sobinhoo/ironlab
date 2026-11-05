@@ -65,3 +65,18 @@ export async function updateCloudProject(auth: Credentials, project: CloudProjec
   });
   return updated;
 }
+
+export type CloudMember = { user_id: string; display_name: string; role: 'admin' | 'mentor' | 'member' | 'viewer' };
+
+export function listCloudMembers(auth: Credentials, teamId: string) {
+  return request<CloudMember[]>(auth, 'rpc/iron_list_team_members', {
+    method: 'POST', body: JSON.stringify({ p_team_id: teamId }),
+  });
+}
+
+export function addCloudMember(auth: Credentials, teamId: string, email: string, role: CloudMember['role']) {
+  return request<CloudMember[]>(auth, 'rpc/iron_add_team_member_by_email', {
+    method: 'POST',
+    body: JSON.stringify({ p_team_id: teamId, p_email: email.trim(), p_role: role }),
+  });
+}
