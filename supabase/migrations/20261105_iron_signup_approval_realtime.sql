@@ -26,6 +26,38 @@ CREATE TRIGGER iron_create_profile_on_signup
   AFTER INSERT ON auth.users FOR EACH ROW
   EXECUTE FUNCTION public.iron_create_pending_profile();
 
+-- Admin invitations use a service-role Edge Function. Their pending profile already
+-- exists after the auth.users trigger, so an authorized upsert must be allowed.
+-- The service-role key must NEVER be exposed to the IRONLab frontend.
+CREATE OR REPLACE FUNCTION public.profile_guard()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+AS $
+DECLARE actor_role public.iron_role;
+BEGIN
+  IF tg_op = 'DELETE' THEN RAISE EXCEPTION 'Profiles cannot be deleted'; END IF;
+  IF tg_op = 'UPDATE' THEN
+    IF auth.role() = 'service_role' THEN
+      RETURN NEW;
+    END IF;
+    SELECT role INTO actor_role FROM public.profiles
+      WHERE id=auth.uid() AND active;
+    IF OLD.role='owner' OR NEW.role='owner' THEN RAISE EXCEPTION 'Owner role is protected'; END IF;
+    IF actor_role IS DISTINCT FROM 'owner' AND actor_role IS DISTINCT FROM 'admin' THEN
+      RAISE EXCEPTION 'Not authorized';
+    END IF;
+    IF OLD.id IS DISTINCT FROM NEW.id OR OLD.created_at IS DISTINCT FROM NEW.created_at THEN
+      RAISE EXCEPTION 'Immutable fields';
+    END IF;
+    IF OLD.id=auth.uid() AND (NEW.active=false OR NEW.role<>OLD.role) THEN
+      RAISE EXCEPTION 'Cannot suspend or demote yourself';
+    END IF;
+    INSERT INTO public.audit_logs(actor_id,target_id,action,before_state,after_state)
+      VALUES(auth.uid(),OLD.id,'profile.update',to_jsonb(OLD),to_jsonb(NEW));
+  END IF;
+  RETURN NEW;
+END;
+$;
+
 -- Users must be active to create teams. SECURITY DEFINER avoids profiles SELECT/RLS
 -- ambiguity inside the team creation policy.
 DROP POLICY IF EXISTS iron_team_create ON public.iron_teams;
