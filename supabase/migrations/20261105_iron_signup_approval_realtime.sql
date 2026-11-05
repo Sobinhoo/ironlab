@@ -45,7 +45,7 @@ ON CONFLICT (id) DO NOTHING;
 -- The service-role key must NEVER be exposed to the IRONLab frontend.
 CREATE OR REPLACE FUNCTION public.profile_guard()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
-AS $
+AS $$
 DECLARE actor_role public.iron_role;
 BEGIN
   IF tg_op = 'DELETE' THEN RAISE EXCEPTION 'Profiles cannot be deleted'; END IF;
@@ -70,7 +70,7 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
-$;
+$$;
 
 -- Users must be active to create teams. SECURITY DEFINER avoids profiles SELECT/RLS
 -- ambiguity inside the team creation policy.
@@ -83,7 +83,7 @@ CREATE POLICY iron_team_create ON public.iron_teams
 -- Members may collaborate on projects; viewers remain read-only.
 CREATE OR REPLACE FUNCTION public.iron_can_access_team(p_team uuid, p_write boolean DEFAULT false)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = ''
-AS $
+AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.iron_teams t
     JOIN public.profiles p ON p.id=auth.uid() AND p.active
@@ -96,7 +96,7 @@ AS $
       )
     )
   )
-$;
+$$;
 REVOKE ALL ON FUNCTION public.iron_can_access_team(uuid,boolean) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.iron_can_access_team(uuid,boolean) TO authenticated;
 
@@ -108,7 +108,7 @@ CREATE OR REPLACE FUNCTION public.iron_add_team_member_by_email(
 )
 RETURNS TABLE(user_id uuid, display_name text, role text)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
-AS $
+AS $$
 DECLARE
   creator_id uuid;
   target_id uuid;
@@ -147,14 +147,14 @@ BEGIN
     ON CONFLICT(team_id,user_id) DO UPDATE SET role=excluded.role;
   RETURN QUERY SELECT target_id, target_name, p_role;
 END;
-$;
+$$;
 REVOKE ALL ON FUNCTION public.iron_add_team_member_by_email(uuid,text,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.iron_add_team_member_by_email(uuid,text,text) TO authenticated;
 
 CREATE OR REPLACE FUNCTION public.iron_list_team_members(p_team_id uuid)
 RETURNS TABLE(user_id uuid, display_name text, role text)
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = ''
-AS $
+AS $$
 BEGIN
   IF NOT public.iron_can_access_team(p_team_id) THEN
     RAISE EXCEPTION 'No access to team' USING ERRCODE='42501';
@@ -166,7 +166,7 @@ BEGIN
     WHERE m.team_id=p_team_id AND p.active
     ORDER BY p.display_name;
 END;
-$;
+$$;
 REVOKE ALL ON FUNCTION public.iron_list_team_members(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.iron_list_team_members(uuid) TO authenticated;
 
