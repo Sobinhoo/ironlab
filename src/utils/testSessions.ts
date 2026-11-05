@@ -1,3 +1,4 @@
+import { scopedStorageKey } from './scopedStorage';
 export type SessionSample = {
   time: number;
   voltage: number | null;
@@ -21,7 +22,7 @@ export const MAX_SAMPLES = 1800; // 30 minutos, uma amostra por segundo
 
 export function loadSessions(): TestSession[] {
   try {
-    const raw = window.localStorage.getItem(SESSION_KEY);
+    const raw = window.localStorage.getItem(scopedStorageKey(SESSION_KEY));
     const parsed: unknown = raw ? JSON.parse(raw) : [];
     if (!Array.isArray(parsed)) return [];
     return parsed.filter((s): s is TestSession =>
