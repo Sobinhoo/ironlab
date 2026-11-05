@@ -65,6 +65,28 @@ export default function AuthGate({children}:{children:ReactNode}) {
     return()=>{cancelled=true;};
   },[session?.access_token,signOut]);
 
+  // A suspended account must lose workspace access even if its JWT is still valid.
+  // A temporary network outage does not itself revoke a locally opened session.
+  useEffect(() => {
+    if (!session || !endpoint || !publicKey) return;
+    let disposed = false;
+    const timer = window.setInterval(async () => {
+      try {
+        const current = readSession();
+        if (!current || current.access_token !== session.access_token) return;
+        const rows = await rest<Profile[]>(
+          `profiles?select=id,display_name,role,active&id=eq.${encodeURIComponent(session.user.id)}`,
+          current.access_token
+        );
+        if (disposed) return;
+        setProfile(rows[0] ?? null);
+        if (!rows.length) setError('A conta não possui perfil autorizado.');
+        else if (!rows[0].active) setError('Acesso suspenso ou ainda não aprovado.');
+      } catch { /* Network outage: retry; server RLS still protects cloud operations. */ }
+    }, 30000);
+    return () => { disposed = true; window.clearInterval(timer); };
+  }, [session?.access_token, session?.user.id]);
+
   // Sessions must stay valid while the notebook uses USB tethering and Wi-Fi
   // for the Control Hub. Refresh ahead of token expiration, not only at startup.
   useEffect(() => {
