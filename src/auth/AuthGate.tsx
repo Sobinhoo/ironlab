@@ -65,6 +65,36 @@ export default function AuthGate({children}:{children:ReactNode}) {
     return()=>{cancelled=true;};
   },[session?.access_token,signOut]);
 
+  // Sessions must stay valid while the notebook uses USB tethering and Wi-Fi
+  // for the Control Hub. Refresh ahead of token expiration, not only at startup.
+  useEffect(() => {
+    if (!session || !endpoint || !publicKey) return;
+    let busyRefreshing = false;
+    const timer = window.setInterval(async () => {
+      const current = readSession();
+      if (!current || current.access_token !== session.access_token ||
+          current.expires_at > Date.now() / 1000 + 180 || busyRefreshing) return;
+      busyRefreshing = true;
+      try {
+        const response = await fetch(`${endpoint}/auth/v1/token?grant_type=refresh_token`, {
+          method: 'POST', headers: authHeaders(),
+          body: JSON.stringify({ refresh_token: current.refresh_token })
+        });
+        if (!response.ok) return; // Network interruption: retry when internet returns.
+        const data = await response.json();
+        const updated: Session = {
+          access_token: data.access_token, refresh_token: data.refresh_token,
+          expires_at: Math.floor(Date.now() / 1000) + data.expires_in,
+          user: data.user
+        };
+        localStorage.setItem(storageKey, JSON.stringify(updated));
+        setSession(updated);
+      } catch { /* retry on next interval */ }
+      finally { busyRefreshing = false; }
+    }, 30000);
+    return () => window.clearInterval(timer);
+  }, [session?.access_token]);
+
   async function login(e:FormEvent){e.preventDefault();setBusy(true);setError('');
     try{
       const response=await fetch(`${endpoint}/auth/v1/token?grant_type=password`,{method:'POST',headers:authHeaders(),body:JSON.stringify({email:email.trim(),password})});
