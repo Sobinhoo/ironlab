@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { createContext, useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import './auth.css';
 
 type Role = 'owner' | 'admin' | 'mentor' | 'member' | 'viewer';
@@ -7,6 +7,20 @@ type Session = { access_token: string; refresh_token: string; expires_at: number
 const endpoint = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.replace(/\/$/, '');
 const publicKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 const storageKey = 'ironlab.auth.session.v1';
+const verifiedKey = 'ironlab.auth.verified-profile.v1';
+const MAX_OFFLINE_AGE_MS = 24 * 60 * 60 * 1000;
+export const OfflineContext = createContext(false);
+type VerifiedProfile = { userId: string; profile: Profile; verifiedAt: number };
+function readVerifiedProfile(): VerifiedProfile | null {
+  try {
+    const stored: unknown = JSON.parse(localStorage.getItem(verifiedKey) || 'null');
+    if (!stored || typeof stored !== 'object') return null;
+    const cached = stored as VerifiedProfile;
+    if (typeof cached.userId !== 'string' || !cached.profile?.active ||
+        cached.profile.id !== cached.userId || !Number.isFinite(cached.verifiedAt)) return null;
+    return cached;
+  } catch { return null; }
+}
 const roleLabels: Record<Role,string> = {owner:'Proprietário',admin:'Administrador',mentor:'Mentor',member:'Integrante',viewer:'Leitor'};
 function readSession(): Session | null { try { return JSON.parse(localStorage.getItem(storageKey) || 'null') as Session | null; } catch { return null; } }
 function authHeaders(token?: string): Record<string,string> { return {'apikey':publicKey || '', 'Authorization':`Bearer ${token || publicKey || ''}`, 'Content-Type':'application/json'}; }
@@ -19,6 +33,8 @@ async function rest<T>(path:string, token:string, init:RequestInit={}):Promise<T
 function errorMessage(e:unknown):string { return e instanceof Error ? e.message : 'Ocorreu um erro inesperado.'; }
 export default function AuthGate({children}:{children:ReactNode}) {
   const [session,setSession]=useState<Session|null>(readSession);
+  const [offline,setOffline]=useState(false);
+  const [verifyTick,setVerifyTick]=useState(0);
   const [profile,setProfile]=useState<Profile|null>(null);
   const [loading,setLoading]=useState(Boolean(readSession()));
   const [error,setError]=useState('');
@@ -37,12 +53,12 @@ export default function AuthGate({children}:{children:ReactNode}) {
   const [recovery,setRecovery]=useState(false);
   const [recoveryEmail,setRecoveryEmail]=useState('');
 
-  const signOut=useCallback(()=>{localStorage.removeItem(storageKey);setSession(null);setProfile(null);setAdminOpen(false);setError('');},[]);
+  const signOut=useCallback(()=>{localStorage.removeItem(storageKey);localStorage.removeItem(verifiedKey);setSession(null);setProfile(null);setOffline(false);setAdminOpen(false);setError('');},[]);
   useEffect(()=>{
     if(!session || !endpoint || !publicKey) {setLoading(false);return;}
     let cancelled=false;
     (async()=>{
-      setLoading(true);
+      setLoading(!offline);
       try {
         let current=session;
         if(current.expires_at < Date.now()/1000+120) {
@@ -58,12 +74,43 @@ export default function AuthGate({children}:{children:ReactNode}) {
         const verified=await response.json();
         if(verified.id!==current.user.id) throw new Error('Identidade da sessão não corresponde.');
         const rows=await rest<Profile[]>(`profiles?select=id,display_name,role,active&id=eq.${encodeURIComponent(verified.id)}`,current.access_token);
-        if(!cancelled){setProfile(rows[0]||null);setError(rows[0]?'':'Não existe um perfil autorizado para esta conta.');}
-      } catch(e){if(!cancelled){signOut();setError(errorMessage(e));}}
+        if(!cancelled){
+          const verifiedProfile = rows[0] || null;
+          setProfile(verifiedProfile);
+          setOffline(false);
+          setError(verifiedProfile ? '' : 'Não existe um perfil autorizado para esta conta.');
+          if (verifiedProfile?.active) {
+            localStorage.setItem(verifiedKey, JSON.stringify({
+              userId: verified.id, profile: verifiedProfile, verifiedAt: Date.now()
+            } satisfies VerifiedProfile));
+          } else {
+            localStorage.removeItem(verifiedKey);
+          }
+        }
+      } catch(e){
+        if(!cancelled) {
+          const cached = readVerifiedProfile();
+          const networkError = e instanceof TypeError;
+          if (networkError && cached?.userId === session.user.id &&
+              Date.now() - cached.verifiedAt < MAX_OFFLINE_AGE_MS) {
+            setProfile(cached.profile);
+            setOffline(true);
+            setError('Sem conexão com o Supabase: acesso temporário apenas aos projetos locais.');
+          } else {
+            signOut();
+            setError(errorMessage(e));
+          }
+        }
+      }
       finally{if(!cancelled)setLoading(false);}
     })();
     return()=>{cancelled=true;};
-  },[session?.access_token,signOut]);
+  },[session?.access_token,signOut,verifyTick]);
+  useEffect(() => {
+    if (!offline) return;
+    const timer = window.setInterval(() => setVerifyTick(tick => tick + 1), 30000);
+    return () => window.clearInterval(timer);
+  }, [offline]);
 
   // A suspended account must lose workspace access even if its JWT is still valid.
   // A temporary network outage does not itself revoke a locally opened session.
@@ -202,5 +249,7 @@ export default function AuthGate({children}:{children:ReactNode}) {
       <button type="button" onClick={signOut}>Sair / verificar novamente</button>
     </section></main>;
   if(!session||!profile?.active)return <main className="iron-login"><form className="iron-login-card" onSubmit={recovery?resetPassword:signup?register:login}><div className="iron-brand"><img className="iron-login-logo" src="/branding/ironlab-logo.png" alt="IRONLab — MCI Lab" /><small>ENGINEERING WORKSPACE</small></div><h2>{recovery?'Recuperar acesso':signup?'Solicitar cadastro':'Acesso à plataforma'}</h2>{signup&&<label>Nome completo<input required minLength={1} maxLength={120} value={signupName} onChange={e=>setSignupName(e.target.value)}/></label>}<label>E-mail<input type="email" required autoComplete="username" value={recovery?recoveryEmail:email} onChange={e=>recovery?setRecoveryEmail(e.target.value):setEmail(e.target.value)}/></label>{!recovery&&<label>Senha<input type="password" required minLength={signup?8:undefined} autoComplete={signup?'new-password':'current-password'} value={password} onChange={e=>setPassword(e.target.value)}/></label>}{error&&<p className="iron-error" role="alert">{error}</p>}{notice&&<p className="iron-notice">{notice}</p>}<button type="submit" disabled={busy}>{busy?'Aguarde…':recovery?'Enviar recuperação':signup?'Solicitar aprovação':'Entrar no IRONLab'}</button><button type="button" className="iron-link" onClick={()=>{setRecovery(!recovery);setSignup(false);setError('');setNotice('');}}>{recovery?'Voltar ao login':'Esqueci minha senha'}</button><button type="button" className="iron-link" onClick={()=>{setSignup(!signup);setRecovery(false);setError('');setNotice('');}}>{signup?'Já tenho uma conta':'Solicitar acesso'}</button>{!recovery&&<button type="button" className="iron-link" disabled={busy} onClick={()=>void resendConfirmation()}>Reenviar confirmação de e-mail</button>}<p className="iron-hint">Acesso exclusivo a integrantes autorizados.</p>{session&&<button type="button" className="iron-link" onClick={signOut}>Trocar de conta</button>}</form></main>;
-  return <><details className="iron-account-menu"><summary aria-label="Abrir menu da conta"><span className="iron-account-avatar" aria-hidden="true">{profile.display_name.trim().slice(0,1).toUpperCase()}</span><span className="iron-account-name">{profile.display_name}</span><span className="iron-account-chevron" aria-hidden="true">⌄</span></summary><div className="iron-account-dropdown"><div className="iron-account-info"><span className="iron-account-avatar iron-account-avatar-large" aria-hidden="true">{profile.display_name.trim().slice(0,1).toUpperCase()}</span><div><strong>{profile.display_name}</strong><small>{roleLabels[profile.role]}</small><small className="iron-account-email">{session.user.email}</small></div></div>{(['owner','admin'] as Role[]).includes(profile.role)&&<button type="button" onClick={()=>void loadUsers()}>Gerenciar usuários e acessos</button>}<button type="button" onClick={signOut}>Sair da conta</button></div></details>{children}{adminOpen&&<div className="iron-overlay" role="presentation"><section className="iron-admin" role="dialog" aria-modal="true" aria-label="Administração de usuários"><header><div><small>IRONLAB / ACESSO</small><h2>Gestão de usuários</h2><p>Permissões, convites e suspensão de contas</p></div><button onClick={()=>{setAdminOpen(false);setError('');}}>Fechar</button></header>{error&&<p className="iron-error" role="alert">{error}</p>}{notice&&<p className="iron-notice">{notice}</p>}<div className="iron-admin-section-heading"><div><h3>Integrantes</h3><p>{users.length} conta(s) cadastrada(s) · {users.filter(u=>u.active).length} ativa(s)</p></div></div><div className="iron-users">{users.map(u=><div className="iron-user-row" key={u.id}><div><strong>{u.display_name}</strong><small>{u.active?'Ativo':'Suspenso'} · {u.id.slice(0,8)}</small></div><select aria-label={`Função de ${u.display_name}`} value={u.role} disabled={busy||u.role==='owner'||u.id===session.user.id} onChange={e=>void updateUser(u,{role:e.target.value as Role})}>{Object.entries(roleLabels).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select><button disabled={busy||u.role==='owner'||u.id===session.user.id} onClick={()=>void updateUser(u,{active:!u.active})}>{u.active?'Suspender': 'Aprovar / reativar'}</button></div>)}</div><h3 className="iron-admin-section-title">Convidar integrante</h3><form className="iron-invite" onSubmit={invite}><input required placeholder="Nome do integrante" value={inviteName} onChange={e=>setInviteName(e.target.value)}/><input required type="email" placeholder="E-mail institucional ou pessoal" value={inviteEmail} onChange={e=>setInviteEmail(e.target.value)}/><select value={inviteRole} onChange={e=>setInviteRole(e.target.value as Role)}>{(['viewer','member','mentor','admin'] as Role[]).map(r=><option key={r} value={r}>{roleLabels[r]}</option>)}</select><button disabled={busy}>Convidar</button></form><h3 className="iron-admin-section-title">Segurança da minha conta</h3><form className="iron-password" onSubmit={changePassword}><input type="password" minLength={8} required placeholder="Nova senha (mínimo 8 caracteres)" value={newPassword} onChange={e=>setNewPassword(e.target.value)}/><button disabled={busy}>Alterar senha</button></form></section></div>}</>;
+  return <><details className="iron-account-menu"><summary aria-label="Abrir menu da conta"><span className="iron-account-avatar" aria-hidden="true">{profile.display_name.trim().slice(0,1).toUpperCase()}</span><span className="iron-account-name">{profile.display_name}</span><span className="iron-account-chevron" aria-hidden="true">⌄</span></summary><div className="iron-account-dropdown"><div className="iron-account-info"><span className="iron-account-avatar iron-account-avatar-large" aria-hidden="true">{profile.display_name.trim().slice(0,1).toUpperCase()}</span><div><strong>{profile.display_name}</strong><small>{roleLabels[profile.role]}</small><small className="iron-account-email">{session.user.email}</small></div></div>{(['owner','admin'] as Role[]).includes(profile.role)&&!offline&&<button type="button" onClick={()=>void loadUsers()}>Gerenciar usuários e acessos</button>}<button type="button" onClick={signOut}>Sair da conta</button></div></details><OfflineContext.Provider value={offline}>{offline&&<p role="status" style={{padding:'8px 16px',background:'#4a3517',color:'#fff'}}>
+        Modo offline: acesso local temporário. Projetos compartilhados e administração indisponíveis.
+      </p>}{children}</OfflineContext.Provider>{adminOpen&&<div className="iron-overlay" role="presentation"><section className="iron-admin" role="dialog" aria-modal="true" aria-label="Administração de usuários"><header><div><small>IRONLAB / ACESSO</small><h2>Gestão de usuários</h2><p>Permissões, convites e suspensão de contas</p></div><button onClick={()=>{setAdminOpen(false);setError('');}}>Fechar</button></header>{error&&<p className="iron-error" role="alert">{error}</p>}{notice&&<p className="iron-notice">{notice}</p>}<div className="iron-admin-section-heading"><div><h3>Integrantes</h3><p>{users.length} conta(s) cadastrada(s) · {users.filter(u=>u.active).length} ativa(s)</p></div></div><div className="iron-users">{users.map(u=><div className="iron-user-row" key={u.id}><div><strong>{u.display_name}</strong><small>{u.active?'Ativo':'Suspenso'} · {u.id.slice(0,8)}</small></div><select aria-label={`Função de ${u.display_name}`} value={u.role} disabled={busy||u.role==='owner'||u.id===session.user.id} onChange={e=>void updateUser(u,{role:e.target.value as Role})}>{Object.entries(roleLabels).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select><button disabled={busy||u.role==='owner'||u.id===session.user.id} onClick={()=>void updateUser(u,{active:!u.active})}>{u.active?'Suspender': 'Aprovar / reativar'}</button></div>)}</div><h3 className="iron-admin-section-title">Convidar integrante</h3><form className="iron-invite" onSubmit={invite}><input required placeholder="Nome do integrante" value={inviteName} onChange={e=>setInviteName(e.target.value)}/><input required type="email" placeholder="E-mail institucional ou pessoal" value={inviteEmail} onChange={e=>setInviteEmail(e.target.value)}/><select value={inviteRole} onChange={e=>setInviteRole(e.target.value as Role)}>{(['viewer','member','mentor','admin'] as Role[]).map(r=><option key={r} value={r}>{roleLabels[r]}</option>)}</select><button disabled={busy}>Convidar</button></form><h3 className="iron-admin-section-title">Segurança da minha conta</h3><form className="iron-password" onSubmit={changePassword}><input type="password" minLength={8} required placeholder="Nova senha (mínimo 8 caracteres)" value={newPassword} onChange={e=>setNewPassword(e.target.value)}/><button disabled={busy}>Alterar senha</button></form></section></div>}</>;
 }
