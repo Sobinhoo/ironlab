@@ -1616,10 +1616,10 @@ function App() {
           </div>
           <div className="toolbar-group toolbar-project" aria-label="Gerenciar projeto">
           <label className="import-button">
-            IMPORTAR FTC
+            IMPORTAR FTC (LOG/XML)
             <input
               type="file"
-              accept=".txt,.log"
+              accept=".txt,.log,.xml"
               hidden
               onChange={(event) => {
                 const file = event.target.files?.[0];
