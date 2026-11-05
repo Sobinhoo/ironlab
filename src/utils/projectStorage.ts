@@ -1,3 +1,4 @@
+import { scopedStorageKey } from './scopedStorage';
 import type {
   Node,
   Edge,
@@ -126,7 +127,7 @@ export function saveProject(
   project: SavedProject
 ) {
   localStorage.setItem(
-    STORAGE_KEY,
+    scopedStorageKey(STORAGE_KEY),
     JSON.stringify(project)
   );
 }
@@ -136,7 +137,7 @@ export function loadProject():
   | null {
   const raw =
     localStorage.getItem(
-      STORAGE_KEY
+      scopedStorageKey(STORAGE_KEY)
     );
 
   if (!raw) {
@@ -172,6 +173,6 @@ export function loadProject():
 
 export function deleteSavedProject() {
   localStorage.removeItem(
-    STORAGE_KEY
+    scopedStorageKey(STORAGE_KEY)
   );
 }
