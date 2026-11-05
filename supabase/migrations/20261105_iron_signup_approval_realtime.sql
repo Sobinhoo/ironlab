@@ -66,6 +66,96 @@ CREATE POLICY iron_team_create ON public.iron_teams
     created_by = (SELECT auth.uid()) AND public.is_active()
   );
 
+-- Members may collaborate on projects; viewers remain read-only.
+CREATE OR REPLACE FUNCTION public.iron_can_access_team(p_team uuid, p_write boolean DEFAULT false)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = ''
+AS $
+  SELECT EXISTS (
+    SELECT 1 FROM public.iron_teams t
+    JOIN public.profiles p ON p.id=auth.uid() AND p.active
+    WHERE t.id=p_team AND (
+      t.created_by=auth.uid()
+      OR EXISTS (
+        SELECT 1 FROM public.iron_team_members m
+        WHERE m.team_id=t.id AND m.user_id=auth.uid()
+          AND (NOT p_write OR m.role IN ('admin','mentor','member'))
+      )
+    )
+  )
+$;
+REVOKE ALL ON FUNCTION public.iron_can_access_team(uuid,boolean) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.iron_can_access_team(uuid,boolean) TO authenticated;
+
+-- Only a team creator or a team admin can add already-approved profiles.
+-- Exact e-mail lookup occurs inside the trusted function, not through client
+-- access to auth.users. A team admin cannot promote another team admin.
+CREATE OR REPLACE FUNCTION public.iron_add_team_member_by_email(
+  p_team_id uuid, p_email text, p_role text DEFAULT 'member'
+)
+RETURNS TABLE(user_id uuid, display_name text, role text)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+AS $
+DECLARE
+  creator_id uuid;
+  target_id uuid;
+  target_name text;
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.is_active() THEN
+    RAISE EXCEPTION 'Active authentication required' USING ERRCODE='42501';
+  END IF;
+  IF p_role IS NULL OR p_role NOT IN ('admin','mentor','member','viewer') THEN
+    RAISE EXCEPTION 'Invalid team role';
+  END IF;
+  SELECT t.created_by INTO creator_id
+    FROM public.iron_teams t WHERE t.id=p_team_id;
+  IF creator_id IS NULL OR NOT (
+    creator_id=auth.uid()
+    OR EXISTS (SELECT 1 FROM public.iron_team_members m
+               WHERE m.team_id=p_team_id AND m.user_id=auth.uid() AND m.role='admin')
+  ) THEN
+    RAISE EXCEPTION 'Not authorized to manage this team' USING ERRCODE='42501';
+  END IF;
+  IF p_role='admin' AND creator_id<>auth.uid() THEN
+    RAISE EXCEPTION 'Only team creators may appoint admins' USING ERRCODE='42501';
+  END IF;
+  SELECT p.id, p.display_name INTO target_id, target_name
+    FROM auth.users u JOIN public.profiles p ON p.id=u.id AND p.active
+    WHERE lower(u.email)=lower(btrim(p_email))
+    LIMIT 1;
+  IF target_id IS NULL THEN
+    RAISE EXCEPTION 'No approved IRONLab account for this e-mail';
+  END IF;
+  IF target_id=creator_id THEN
+    RAISE EXCEPTION 'Creator membership is protected';
+  END IF;
+  INSERT INTO public.iron_team_members(team_id,user_id,role)
+    VALUES(p_team_id,target_id,p_role)
+    ON CONFLICT(team_id,user_id) DO UPDATE SET role=excluded.role;
+  RETURN QUERY SELECT target_id, target_name, p_role;
+END;
+$;
+REVOKE ALL ON FUNCTION public.iron_add_team_member_by_email(uuid,text,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.iron_add_team_member_by_email(uuid,text,text) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.iron_list_team_members(p_team_id uuid)
+RETURNS TABLE(user_id uuid, display_name text, role text)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = ''
+AS $
+BEGIN
+  IF NOT public.iron_can_access_team(p_team_id) THEN
+    RAISE EXCEPTION 'No access to team' USING ERRCODE='42501';
+  END IF;
+  RETURN QUERY
+    SELECT m.user_id, p.display_name, m.role
+    FROM public.iron_team_members m
+    JOIN public.profiles p ON p.id=m.user_id
+    WHERE m.team_id=p_team_id AND p.active
+    ORDER BY p.display_name;
+END;
+$;
+REVOKE ALL ON FUNCTION public.iron_list_team_members(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.iron_list_team_members(uuid) TO authenticated;
+
 -- Enable secure change notifications. Existing SELECT RLS protects which changes a
 -- subscriber can receive. Never publish audit_logs or auth.users.
 DO $$
