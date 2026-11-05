@@ -43,6 +43,12 @@ a chave de serviço no frontend.
    exibe **conflito**, preserva o trabalho local e oferece **exportar backup**
    antes de abrir a versão recente. Não faz merge CRDT estilo Google Docs.
 
+A verificação administrativa de e-mail confirmado usa a RPC restrita
+`iron_admin_list_accounts` após a migração. Usuários com e-mail não confirmado
+não podem ser aprovados pelo frontend e a política do banco bloqueia a
+ativação enquanto faltar confirmação. O Supabase exige configuração de SMTP
+para envio confiável dos e-mails de cadastro.
+
 O frontend verifica as listas de equipes a cada 15s e de projetos a cada
 10s. A revisão ativa é verificada a cada 5s caso um evento Realtime seja
 perdido durante mudança de rede. Salvamentos pendentes são tentados
@@ -55,10 +61,15 @@ novamente após falhas temporárias de conexão.
 - `robotControllerLog.txt` que inclua algum bloco XML completo;
 - logs com prefixo de timestamp e tag de processo em cada linha XML.
 
-Se o log não contém um bloco `<Robot>...</Robot>`, a configuração **não
-pode ser reconstruída somente pelo log**. Exporte o XML da configuração
-pelo Robot Controller / Driver Station. A telemetria HTTP pode preencher
-o mapa visual em separado, mas não equivale à configuração exportada.
+Os logs FTC SDK que não contenham XML também podem ser importados **quando
+incluem a tabela `Device Information`**. Esse formato revela nomes, módulos
+e portas de motores/servos; não revela necessariamente modelo exato, todos os
+dispositivos ou parâmetros não exibidos. Se nem XML nem a tabela estiverem
+presentes, exporte o XML de configuração do Robot Controller.
+
+O formato `Device Information` foi validado com um log real da IronHide.
+Não use dados inferidos do log como substituto de confirmação física da
+pinagem antes de energizar ou testar componentes.
 
 ## Validações indispensáveis antes de liberar a produção
 
@@ -72,6 +83,12 @@ o mapa visual em separado, mas não equivale à configuração exportada.
   não descarta dados e que exportar backup funciona.
 - Quinto: enviar um `robotControllerLog.txt` com XML e um arquivo
   `.xml` individual, verificando a associação dos motores ao módulo.
+
+O modo offline local oferece tolerância de até 24 horas após uma verificação
+válida. Não libera acesso aos projetos da nuvem nem administração. Por depender
+de cache local, é inadequado em computadores não confiáveis ou compartilhados
+sem proteção do sistema operacional; a RLS continua sendo a autorização do
+Supabase para todas as operações remotas.
 
 A build aprovada em CI comprova sintaxe e compilação; não substitui os
 testes de regras RLS no Supabase de produção ou de uso em duas máquinas.
