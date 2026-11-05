@@ -1,5 +1,6 @@
 import { useContext, useEffect, useState } from 'react';
 import { OfflineContext } from '../auth/AuthGate';
+import { scopedStorageKey } from '../utils/scopedStorage';
 import type { SavedProject } from '../utils/projectStorage';
 import CloudProjects from './CloudProjects';
 
@@ -17,7 +18,7 @@ type Props = {
 const KEY = 'ironlab-project-library-v1';
 type LibraryItem = { id: string; name: string; updatedAt: string; project: SavedProject };
 function readLibrary(): LibraryItem[] {
-  try { const data: unknown = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(data) ? data as LibraryItem[] : []; }
+  try { const data: unknown = JSON.parse(localStorage.getItem(scopedStorageKey(KEY)) || '[]'); return Array.isArray(data) ? data as LibraryItem[] : []; }
   catch { return []; }
 }
 export default function WorkspaceTools(p: Props) {
@@ -32,7 +33,7 @@ export default function WorkspaceTools(p: Props) {
     const entry = `${new Date().toLocaleTimeString()} · ${p.connected ? 'Hub conectado' : 'Hub desconectado'} · ${p.pingMs ?? '—'} ms`;
     setLogs(prev => prev.at(-1) === entry ? prev : [...prev.slice(-39), entry]);
   }, [p.connected, p.pingMs]);
-  const persist = (items: LibraryItem[]) => { try {localStorage.setItem(KEY, JSON.stringify(items));setLibrary(items);setNotice('Biblioteca atualizada neste dispositivo.');} catch {setNotice('Sem espaço para salvar no navegador. Exporte seus projetos.');} };
+  const persist = (items: LibraryItem[]) => { try {localStorage.setItem(scopedStorageKey(KEY), JSON.stringify(items));setLibrary(items);setNotice('Biblioteca atualizada neste dispositivo.');} catch {setNotice('Sem espaço para salvar no navegador. Exporte seus projetos.');} };
   const saveAs = (duplicate = false) => {
     const name = window.prompt(duplicate ? 'Nome da cópia:' : 'Salvar projeto como:', duplicate ? `${p.robotName} — cópia` : p.robotName)?.trim();
     if (!name) return;
