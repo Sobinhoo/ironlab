@@ -1,7 +1,7 @@
 import type { SavedProject } from '../utils/projectStorage';
 
 type Credentials = { endpoint: string; anonKey: string; accessToken: string };
-export type CloudProject = { id: string; team_id: string; name: string; revision: number; updated_at: string; document: SavedProject };
+export type CloudProject = { id: string; team_id: string; name: string; revision: number; updated_at: string; updated_by?: string | null; document: SavedProject };
 export type CloudTeam = { id: string; name: string; created_by: string };
 
 async function request<T>(auth: Credentials, path: string, init: RequestInit = {}): Promise<T> {
@@ -32,11 +32,20 @@ export function createCloudTeam(auth: Credentials, name: string, userId: string)
 }
 
 export function listCloudProjects(auth: Credentials, teamId: string) {
-  return request<CloudProject[]>(auth, 'iron_projects?select=id,team_id,name,revision,updated_at,document&team_id=eq.' + encodeURIComponent(teamId) + '&order=updated_at.desc');
+  return request<CloudProject[]>(auth, 'iron_projects?select=id,team_id,name,revision,updated_at,updated_by,document&team_id=eq.' + encodeURIComponent(teamId) + '&order=updated_at.desc');
+}
+
+
+export async function getCloudProject(auth: Credentials, id: string) {
+  const result = await request<CloudProject[]>(
+    auth,
+    'iron_projects?select=id,team_id,name,revision,updated_at,updated_by,document&id=eq.' + encodeURIComponent(id)
+  );
+  return result[0] ?? null;
 }
 
 export function createCloudProject(auth: Credentials, teamId: string, document: SavedProject, userId: string) {
-  return request<CloudProject[]>(auth, 'iron_projects?select=id,team_id,name,revision,updated_at,document', {
+  return request<CloudProject[]>(auth, 'iron_projects?select=id,team_id,name,revision,updated_at,updated_by,document', {
     method: 'POST',
     headers: { Prefer: 'return=representation' },
     body: JSON.stringify({ team_id: teamId, name: document.robot.name, document, updated_by: userId }),
