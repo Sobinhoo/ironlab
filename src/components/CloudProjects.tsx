@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import type { SavedProject } from '../utils/projectStorage';
 import {
-  createCloudProject, createCloudTeam, getCloudProject, listCloudProjects,
+  addCloudMember, listCloudMembers, type CloudMember, createCloudProject, createCloudTeam, getCloudProject, listCloudProjects,
   listCloudTeams, updateCloudProject, type CloudProject, type CloudTeam,
 } from '../services/cloudProjects';
 import './CloudProjects.css';
@@ -22,6 +22,9 @@ function fingerprint(document: SavedProject): string {
 export default function CloudProjects({ snapshot, onOpenProject }: Props) {
   const [teams, setTeams] = useState<CloudTeam[]>([]);
   const [teamId, setTeamId] = useState('');
+  const [members, setMembers] = useState<CloudMember[]>([]);
+  const [memberEmail, setMemberEmail] = useState('');
+  const [memberRole, setMemberRole] = useState<CloudMember['role']>('member');
   const [projects, setProjects] = useState<CloudProject[]>([]);
   const [current, setCurrent] = useState<CloudProject | null>(null);
   const [conflict, setConflict] = useState<CloudProject | null>(null);
@@ -71,6 +74,21 @@ export default function CloudProjects({ snapshot, onOpenProject }: Props) {
 
   useEffect(() => { void refreshTeams().catch(e => setError(String(e))); }, [refreshTeams]);
   useEffect(() => { void refreshProjects().catch(e => setError(String(e))); }, [refreshProjects]);
+  const refreshMembers = useCallback(async () => {
+    if (!teamId) { setMembers([]); return; }
+    const { auth } = credentials();
+    setMembers(await listCloudMembers(auth, teamId));
+  }, [credentials, teamId]);
+  useEffect(() => { void refreshMembers().catch(e => setError(String(e))); }, [refreshMembers]);
+
+  let userId = '';
+  try { userId = credentials().userId; } catch { /* not authenticated */ }
+  const teamCreator = teams.find(t => t.id === teamId)?.created_by === userId;
+  const myTeamRole = members.find(m => m.user_id === userId)?.role;
+  const canManageMembers = teamCreator || myTeamRole === 'admin';
+  const canWrite = teamCreator || myTeamRole === 'admin' ||
+    myTeamRole === 'mentor' || myTeamRole === 'member';
+
 
   const openShared = useCallback((project: CloudProject) => {
     awaitingOpenRef.current = fingerprint(project.document);
@@ -131,7 +149,7 @@ export default function CloudProjects({ snapshot, onOpenProject }: Props) {
   // Do not auto-save until opening a remote project has reached the local editor.
   // Atomic RPC rejects simultaneous writes against an older revision.
   useEffect(() => {
-    if (!current || conflict) return;
+    if (!current || conflict || !canWrite) return;
     if (awaitingOpenRef.current) {
       if (signature === awaitingOpenRef.current) awaitingOpenRef.current = null;
       return;
@@ -172,7 +190,7 @@ export default function CloudProjects({ snapshot, onOpenProject }: Props) {
       }
     }, 1200);
     return () => window.clearTimeout(timer);
-  }, [signature, current?.id, current?.revision, conflict, credentials]);
+  }, [signature, current?.id, current?.revision, conflict, credentials, canWrite]);
 
   async function run(action: () => Promise<void>) {
     setBusy(true); setError(''); setNotice('');
@@ -208,6 +226,31 @@ export default function CloudProjects({ snapshot, onOpenProject }: Props) {
       <option value="">Selecione uma equipe</option>
       {teams.map(t => <option value={t.id} key={t.id}>{t.name}</option>)}
     </select></label>
+    {teamId && <>
+      <h4>Integrantes da equipe ({members.length})</h4>
+      <div className="iron-cloud-list">
+        {members.map(m => <div className="iron-cloud-item" key={m.user_id}>
+          <strong>{m.display_name}</strong><small>{m.role === 'viewer' ? 'Leitura' : m.role}</small>
+        </div>)}
+      </div>
+      {canManageMembers && <div className="iron-cloud-actions">
+        <input aria-label="E-mail de integrante aprovado" type="email" placeholder="E-mail da conta aprovada"
+          value={memberEmail} onChange={e => setMemberEmail(e.target.value)} />
+        <select aria-label="Papel na equipe" value={memberRole}
+          onChange={e => setMemberRole(e.target.value as CloudMember['role'])}>
+          <option value="member">Integrante (edita)</option>
+          <option value="mentor">Mentor (edita)</option>
+          <option value="viewer">Leitor</option>
+          {teamCreator && <option value="admin">Administrador da equipe</option>}
+        </select>
+        <button disabled={busy || !memberEmail.includes('@')} onClick={() => void run(async () => {
+          const {auth}=credentials();
+          await addCloudMember(auth,teamId,memberEmail,memberRole);
+          setMemberEmail(''); await refreshMembers();
+          setNotice('Integrante autorizado a acessar os projetos da equipe.');
+        })}>Adicionar integrante</button>
+      </div>}
+    </>}
     <div className="iron-cloud-actions">
       <button disabled={busy} onClick={() => void run(async () => {
         const name = window.prompt('Nome da nova equipe:')?.trim();
@@ -221,7 +264,7 @@ export default function CloudProjects({ snapshot, onOpenProject }: Props) {
       <button disabled={busy || !teamId} onClick={() => void run(refreshProjects)}>Atualizar lista</button>
     </div>
     {teamId && <div className="iron-cloud-actions">
-      <button disabled={busy} onClick={() => void run(async () => {
+      <button disabled={busy || !canWrite} onClick={() => void run(async () => {
         const { auth, userId } = credentials();
         const created = await createCloudProject(auth, teamId, snapshotRef.current, userId);
         if (created[0]) {
@@ -235,8 +278,9 @@ export default function CloudProjects({ snapshot, onOpenProject }: Props) {
       })}>Enviar projeto atual como novo</button>
     </div>}
     {current && <div className="iron-cloud-current">
+      {!canWrite && <p>Seu acesso é somente leitura; alterações locais não serão enviadas à equipe.</p>}
       <strong>Projeto ativo: {current.name}</strong><small>Revisão {current.revision}</small>
-      <button disabled={busy || syncing || Boolean(conflict)} onClick={() => void run(async () => {
+      <button disabled={busy || syncing || Boolean(conflict) || !canWrite} onClick={() => void run(async () => {
         const opened = currentRef.current;
         if (!opened) return;
         const { auth, userId } = credentials();
