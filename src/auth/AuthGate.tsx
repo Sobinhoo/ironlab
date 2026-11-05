@@ -108,9 +108,17 @@ export default function AuthGate({children}:{children:ReactNode}) {
   },[session?.access_token,signOut,verifyTick]);
   useEffect(() => {
     if (!offline) return;
-    const timer = window.setInterval(() => setVerifyTick(tick => tick + 1), 30000);
+    const timer = window.setInterval(() => {
+      const verified = readVerifiedProfile();
+      if (!verified || Date.now() - verified.verifiedAt >= MAX_OFFLINE_AGE_MS) {
+        signOut();
+        setError('O acesso offline expirou. Conecte-se à internet e entre novamente.');
+        return;
+      }
+      setVerifyTick(tick => tick + 1);
+    }, 30000);
     return () => window.clearInterval(timer);
-  }, [offline]);
+  }, [offline, signOut]);
 
   // A suspended account must lose workspace access even if its JWT is still valid.
   // A temporary network outage does not itself revoke a locally opened session.
@@ -126,9 +134,16 @@ export default function AuthGate({children}:{children:ReactNode}) {
           current.access_token
         );
         if (disposed) return;
-        setProfile(rows[0] ?? null);
-        if (!rows.length) setError('A conta não possui perfil autorizado.');
-        else if (!rows[0].active) setError('Acesso suspenso ou ainda não aprovado.');
+        const latest = rows[0] ?? null;
+        setProfile(latest);
+        if (!latest?.active) {
+          localStorage.removeItem(verifiedKey);
+          setError(latest ? 'Acesso suspenso ou ainda não aprovado.' : 'A conta não possui perfil autorizado.');
+        } else {
+          localStorage.setItem(verifiedKey, JSON.stringify({
+            userId: latest.id, profile: latest, verifiedAt: Date.now()
+          } satisfies VerifiedProfile));
+        }
       } catch { /* Network outage: retry; server RLS still protects cloud operations. */ }
     }, 30000);
     return () => { disposed = true; window.clearInterval(timer); };
