@@ -69,11 +69,11 @@ export default function WorkspaceTools(p: Props) {
         <button onClick={() => setPanel(panel === 'settings' ? null : 'settings')} title="Preferências e comunicação">⚙</button>
       </div>
     </nav>
-    {panel && <div className="iron-panel-backdrop" onClick={() => setPanel(null)}>
+    <div className="iron-panel-backdrop" style={{display: panel ? undefined : "none"}} onClick={() => setPanel(null)}>
       <aside className="iron-workspace-panel" onClick={e => e.stopPropagation()} aria-label={panel === 'settings' ? 'Configurações' : panel === 'projects' ? 'Projetos' : 'Ajuda'}>
         <div className="iron-panel-heading"><div><small>IRONLAB / WORKSPACE</small><h2>{panel === 'projects' ? 'Projetos e arquivos' : panel === 'settings' ? 'Preferências' : 'Centro de ajuda'}</h2></div><button onClick={() => setPanel(null)} aria-label="Fechar">×</button></div>
         {notice && <p className="iron-panel-notice" role="status">{notice}</p>}
-        {panel === 'projects' && <div className="iron-panel-section">
+        <div className="iron-panel-section" style={{display: panel === 'projects' ? undefined : 'none'}}>
           <label>Projeto atual<input value={p.robotName} onChange={e => p.onRename(e.target.value)} /></label>
           <div className="iron-panel-actions"><button onClick={p.onSave}>Salvar</button><button onClick={() => saveAs()}>Salvar como</button><button onClick={() => saveAs(true)}>Duplicar</button></div>
           <div className="iron-panel-actions"><button onClick={exportJson}>Exportar JSON</button><label className="iron-file-button">Importar JSON<input hidden type="file" accept=".json" onChange={e => {void importJson(e.target.files?.[0]);e.target.value='';}} /></label></div>
@@ -81,7 +81,7 @@ export default function WorkspaceTools(p: Props) {
           {library.filter(i => i.name.toLowerCase().includes(search.toLowerCase())).map(i => <div className="iron-project-entry" key={i.id}><div><strong>{i.name}</strong><small>{new Date(i.updatedAt).toLocaleString()}</small></div><div><button onClick={() => {p.onOpenProject(i.project);setPanel(null);}}>Abrir</button><button title="Excluir da biblioteca" onClick={() => {if(confirm(`Excluir ${i.name} da biblioteca local?`)) persist(library.filter(x => x.id !== i.id));}}>×</button></div></div>)}
           <p className="iron-panel-hint">A biblioteca local permanece neste dispositivo. A sincronização com Supabase é manual e independente.</p>
           <CloudProjects snapshot={p.snapshot} onOpenProject={p.onOpenProject} />
-        </div>}
+        </div>
         {panel === 'settings' && <div className="iron-panel-section">
           <h3>Área de trabalho</h3>
           <label className="iron-toggle"><input type="checkbox" checked={p.snapToGrid} onChange={e => p.onSnapChange(e.target.checked)} /> Grade magnética (20 px)</label>
@@ -103,6 +103,6 @@ export default function WorkspaceTools(p: Props) {
           <p className="iron-panel-hint">O registro acima é local e temporário. Não substitui logs do Robot Controller.</p>
         </div>}
       </aside>
-    </div>}
+    </div>
   </>;
 }
