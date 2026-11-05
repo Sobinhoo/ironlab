@@ -6,7 +6,6 @@ export type ImportedMotor = {
   hubName: string;
   moduleAddress: number;
 };
-
 export type ImportedServo = {
   type: 'servo';
   name: string;
@@ -15,272 +14,96 @@ export type ImportedServo = {
   hubName: string;
   moduleAddress: number;
 };
-
-export type ImportedComponent =
-  | ImportedMotor
-  | ImportedServo;
-
+export type ImportedComponent = ImportedMotor | ImportedServo;
 export type ImportedHub = {
   name: string;
   moduleAddress: number;
   components: ImportedComponent[];
 };
+export type FTCConfiguration = { name: string; hubs: ImportedHub[] };
 
-export type FTCConfiguration = {
-  name: string;
-  hubs: ImportedHub[];
-};
-
-function cleanLogLine(line: string) {
-  const xmlStart = line.indexOf('<');
-
-  if (xmlStart === -1) {
-    return '';
-  }
-
-  return line
-    .substring(xmlStart)
-    .trim();
-}
-
-function getConfigurationName(
-  text: string
-) {
-  const matches = [
-    ...text.matchAll(
-      /CMD_(?:SAVE|ACTIVATE)_CONFIGURATION[^\n]*"name":"([^"]+)"/g
-    ),
-  ];
-
-  if (matches.length === 0) {
-    return 'Configuração importada';
-  }
-
-  return matches[
-    matches.length - 1
-  ][1];
-}
-
-function findLatestRobotXml(
-  text: string
-) {
-  const lines =
-    text.split(/\r?\n/);
-
-  let currentXml:
-    string[] | null = null;
-
-  let latestXml = '';
-
-  for (const line of lines) {
-    if (
-      line.includes('<Robot')
-    ) {
-      currentXml = [
-        cleanLogLine(line),
-      ];
-
-      continue;
+/** Accept both Robot Controller logcat lines and standalone FTC robot XML files. */
+function findLatestRobotXml(text: string): string {
+  const xml: string[] = [];
+  let current: string[] | null = null;
+  for (const line of text.split(/\r?\n/)) {
+    const start = line.indexOf('<Robot');
+    if (start !== -1 && /^<Robot(?:\s|>)/.test(line.slice(start))) {
+      current = [];
     }
-
-    if (currentXml !== null) {
-      const cleaned =
-        cleanLogLine(line);
-
-      if (cleaned !== '') {
-        currentXml.push(
-          cleaned
-        );
-      }
-
-      if (
-        line.includes('</Robot>')
-      ) {
-        latestXml =
-          currentXml.join('\n');
-
-        currentXml = null;
-      }
+    if (current === null) continue;
+    // Logcat prefixes each XML line with timestamp, PID and logger tag.
+    const fragmentStart = line.indexOf('<');
+    if (fragmentStart !== -1) {
+      current.push(line.slice(fragmentStart).trim());
+    }
+    if (line.includes('</Robot>')) {
+      const candidate = current.join('\n');
+      if (candidate.includes('<Robot') && candidate.includes('</Robot>')) xml.push(candidate);
+      current = null;
     }
   }
-
-  return latestXml;
+  return xml.at(-1) ?? '';
 }
 
-function isMotorTag(
-  tagName: string
-) {
-  const lower =
-    tagName.toLowerCase();
-
-  return (
-    lower.includes('motor') &&
-    !lower.includes(
-      'controller'
-    )
-  );
+function configurationName(text: string): string {
+  const commands = [...text.matchAll(/CMD_(?:SAVE|ACTIVATE)_CONFIGURATION[^\n]*?["']name["']\s*:\s*["']([^"'\n]+)["']/g)];
+  if (commands.length) return commands.at(-1)![1];
+  const name = text.match(/<Robot\b[^>]*\bname\s*=\s*["']([^"']+)["']/);
+  return name?.[1] ?? 'Configuração FTC importada';
 }
 
-function isServoTag(
-  tagName: string
-) {
-  const lower =
-    tagName.toLowerCase();
-
-  return (
-    lower.includes('servo') &&
-    !lower.includes(
-      'controller'
-    )
-  );
+function componentType(tag: string): 'motor' | 'servo' | null {
+  const normalized = tag.toLowerCase();
+  if (normalized.includes('controller')) return null;
+  if (normalized.includes('motor')) return 'motor';
+  if (normalized.includes('servo')) return 'servo';
+  return null;
 }
 
-export function parseFTCLog(
-  text: string
-): FTCConfiguration {
-  const configurationName =
-    getConfigurationName(text);
-
-  const xmlText =
-    findLatestRobotXml(text);
-
-  if (xmlText === '') {
+/**
+ * Parse actual robot configuration XML, either as a standalone .xml file or
+ * the newest complete <Robot> block found in robotControllerLog.txt.
+ * Runtime telemetry is not a replacement for FTC device configuration files.
+ */
+export function parseFTCLog(text: string): FTCConfiguration {
+  const xmlText = findLatestRobotXml(text);
+  if (!xmlText) {
     throw new Error(
-      'Nenhuma configuração FTC foi encontrada no log.'
+      'Este arquivo não contém um bloco <Robot> completo. Exporte a configuração XML pela Driver Station/Robot Controller, ou forneça um log que registre a configuração.'
     );
   }
-
-  const parser =
-    new DOMParser();
-
-  const xml =
-    parser.parseFromString(
-      xmlText,
-      'application/xml'
-    );
-
-  if (
-    xml.querySelector(
-      'parsererror'
-    )
-  ) {
-    throw new Error(
-      'A configuração foi encontrada, mas o XML não pôde ser interpretado.'
-    );
+  const document = new DOMParser().parseFromString(xmlText, 'application/xml');
+  if (document.querySelector('parsererror')) {
+    throw new Error('XML da configuração FTC inválido ou incompleto.');
   }
-
-  const moduleElements = [
-    ...xml.querySelectorAll(
-      'LynxModule'
-    ),
-  ];
-
-  if (
-    moduleElements.length === 0
-  ) {
-    throw new Error(
-      'Nenhum Control Hub ou Expansion Hub foi encontrado.'
-    );
-  }
-
-  const hubs:
-    ImportedHub[] =
-    moduleElements.map(
-      (moduleElement) => {
-        const hubName =
-          moduleElement.getAttribute(
-            'name'
-          ) ??
-          'REV Hub';
-
-        const moduleAddress =
-          Number(
-            moduleElement.getAttribute(
-              'port'
-            ) ?? 0
-          );
-
-        const components:
-          ImportedComponent[] =
-          [];
-
-        for (
-          const child of
-          Array.from(
-            moduleElement.children
-          )
-        ) {
-          const tagName =
-            child.tagName;
-
-          const name =
-            child.getAttribute(
-              'name'
-            );
-
-          const portText =
-            child.getAttribute(
-              'port'
-            );
-
-          if (
-            name === null ||
-            portText === null
-          ) {
-            continue;
-          }
-
-          const port =
-            Number(portText);
-
-          if (
-            Number.isNaN(port)
-          ) {
-            continue;
-          }
-
-          if (
-            isMotorTag(tagName)
-          ) {
-            components.push({
-              type: 'motor',
-              name: name,
-              port: port,
-              model: tagName,
-              hubName: hubName,
-              moduleAddress:
-                moduleAddress,
-            });
-
-            continue;
-          }
-
-          if (
-            isServoTag(tagName)
-          ) {
-            components.push({
-              type: 'servo',
-              name: name,
-              port: port,
-              model: tagName,
-              hubName: hubName,
-              moduleAddress:
-                moduleAddress,
-            });
-          }
-        }
-
-        return {
-          name: hubName,
-          moduleAddress:
-            moduleAddress,
-          components: components,
-        };
-      }
-    );
-
-  return {
-    name: configurationName,
-    hubs: hubs,
-  };
+  const robot = document.documentElement;
+  if (robot.tagName !== 'Robot') throw new Error('Arquivo não é uma configuração FTC (raiz Robot ausente).');
+  const modules = Array.from(robot.getElementsByTagName('LynxModule'));
+  if (!modules.length) throw new Error('Configuração FTC sem módulos REV Lynx.');
+  const hubs: ImportedHub[] = modules.map(module => {
+    const address = Number(module.getAttribute('port'));
+    if (!Number.isInteger(address) || address < 0) {
+      throw new Error('Endereço de módulo REV inválido na configuração.');
+    }
+    const parent = module.parentElement;
+    const embedded = parent?.getAttribute('serialNumber') === '(embedded)';
+    const name = module.getAttribute('name') ||
+      (embedded ? 'Control Hub' : 'Expansion Hub ' + address);
+    const components: ImportedComponent[] = [];
+    for (const child of Array.from(module.children)) {
+      const type = componentType(child.tagName);
+      if (!type) continue;
+      const componentName = child.getAttribute('name')?.trim();
+      const port = Number(child.getAttribute('port'));
+      if (!componentName || !Number.isInteger(port) ||
+          port < 0 || port > (type === 'motor' ? 3 : 5)) continue;
+      components.push({
+        type, name: componentName, port,
+        model: child.tagName, hubName: name, moduleAddress: address,
+      });
+    }
+    return { name, moduleAddress: address, components };
+  });
+  return { name: configurationName(text), hubs };
 }
