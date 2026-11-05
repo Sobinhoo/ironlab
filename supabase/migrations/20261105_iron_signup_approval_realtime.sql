@@ -210,6 +210,12 @@ BEGIN
                    AND schemaname = 'public' AND tablename = 'iron_projects') THEN
     EXECUTE 'ALTER PUBLICATION supabase_realtime ADD TABLE public.iron_projects';
   END IF;
+  -- A previously attempted migration may have published sensitive profile events.
+  IF EXISTS (SELECT 1 FROM pg_publication_tables
+             WHERE pubname = 'supabase_realtime'
+               AND schemaname = 'public' AND tablename = 'profiles') THEN
+    EXECUTE 'ALTER PUBLICATION supabase_realtime DROP TABLE public.profiles';
+  END IF;
 END;
 $$;
 COMMIT;
