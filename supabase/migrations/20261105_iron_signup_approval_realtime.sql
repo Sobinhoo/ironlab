@@ -85,7 +85,7 @@ RETURNS TABLE (
   email text, email_confirmed boolean
 )
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = ''
-AS $
+AS $$
 BEGIN
   IF auth.uid() IS NULL OR NOT public.is_staff() THEN
     RAISE EXCEPTION 'Admin access required' USING ERRCODE='42501';
@@ -96,7 +96,7 @@ BEGIN
     FROM public.profiles p JOIN auth.users u ON u.id=p.id
     ORDER BY p.display_name;
 END;
-$;
+$$;
 REVOKE ALL ON FUNCTION public.iron_admin_list_accounts() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.iron_admin_list_accounts() TO authenticated;
 
