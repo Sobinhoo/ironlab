@@ -23,7 +23,7 @@ export type ImportedHub = {
 export type FTCConfiguration = { name: string; hubs: ImportedHub[] };
 
 /** Accept both Robot Controller logcat lines and standalone FTC robot XML files. */
-function findLatestRobotXml(text: string): string {
+export function findLatestRobotXml(text: string): string {
   const xml: string[] = [];
   let current: string[] | null = null;
   for (const line of text.split(/\r?\n/)) {
