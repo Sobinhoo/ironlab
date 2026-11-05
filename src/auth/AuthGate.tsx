@@ -1,5 +1,6 @@
 import { createContext, useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import './auth.css';
+import { migrateLegacyOwnerStorage } from '../utils/scopedStorage';
 
 type Role = 'owner' | 'admin' | 'mentor' | 'member' | 'viewer';
 type Profile = { id: string; display_name: string; role: Role; active: boolean; email?: string; email_confirmed?: boolean };
@@ -76,6 +77,10 @@ export default function AuthGate({children}:{children:ReactNode}) {
         const rows=await rest<Profile[]>(`profiles?select=id,display_name,role,active&id=eq.${encodeURIComponent(verified.id)}`,current.access_token);
         if(!cancelled){
           const verifiedProfile = rows[0] || null;
+          if (verifiedProfile?.active && verifiedProfile.role === 'owner') {
+            try { migrateLegacyOwnerStorage(verified.id); }
+            catch (e) { console.warn('Falha ao migrar projetos legados. Faça um backup.', e); }
+          }
           setProfile(verifiedProfile);
           setOffline(false);
           setError(verifiedProfile ? '' : 'Não existe um perfil autorizado para esta conta.');
