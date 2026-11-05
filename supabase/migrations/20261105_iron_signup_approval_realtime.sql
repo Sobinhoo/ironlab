@@ -26,6 +26,20 @@ CREATE TRIGGER iron_create_profile_on_signup
   AFTER INSERT ON auth.users FOR EACH ROW
   EXECUTE FUNCTION public.iron_create_pending_profile();
 
+-- Backfill auth accounts created before this trigger was installed.
+-- Existing profiles (including the owner) are never modified or auto-approved.
+INSERT INTO public.profiles (id, display_name, role, active)
+SELECT u.id,
+       left(COALESCE(
+         NULLIF(btrim(u.raw_user_meta_data ->> 'display_name'), ''),
+         NULLIF(split_part(COALESCE(u.email, ''), '@', 1), ''),
+         'Novo integrante'
+       ), 120),
+       'member', false
+FROM auth.users u
+WHERE NOT EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = u.id)
+ON CONFLICT (id) DO NOTHING;
+
 -- Admin invitations use a service-role Edge Function. Their pending profile already
 -- exists after the auth.users trigger, so an authorized upsert must be allowed.
 -- The service-role key must NEVER be exposed to the IRONLab frontend.
@@ -156,8 +170,8 @@ $;
 REVOKE ALL ON FUNCTION public.iron_list_team_members(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.iron_list_team_members(uuid) TO authenticated;
 
--- Enable secure change notifications. Existing SELECT RLS protects which changes a
--- subscriber can receive. Never publish audit_logs or auth.users.
+-- Enable secure change notifications for projects only. SELECT RLS gates events.
+-- Do not publish profiles, audit_logs or auth.users.
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
@@ -167,11 +181,6 @@ BEGIN
                  WHERE pubname = 'supabase_realtime'
                    AND schemaname = 'public' AND tablename = 'iron_projects') THEN
     EXECUTE 'ALTER PUBLICATION supabase_realtime ADD TABLE public.iron_projects';
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables
-                 WHERE pubname = 'supabase_realtime'
-                   AND schemaname = 'public' AND tablename = 'profiles') THEN
-    EXECUTE 'ALTER PUBLICATION supabase_realtime ADD TABLE public.profiles';
   END IF;
 END;
 $$;
