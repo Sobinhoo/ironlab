@@ -43,6 +43,7 @@ export default function CloudProjects({ snapshot, onOpenProject }: Props) {
   const [conflict, setConflict] = useState<CloudProject | null>(null);
   const [busy, setBusy] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [retryTick, setRetryTick] = useState(0);
   const [online, setOnline] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -186,6 +187,13 @@ export default function CloudProjects({ snapshot, onOpenProject }: Props) {
     };
   }, [current?.id, url, anonKey, credentials, reconcileRemote]);
 
+  // Retry unsent changes after temporary Internet loss without dropping them.
+  useEffect(() => {
+    if (!current?.id) return;
+    const timer = window.setInterval(() => setRetryTick(value => value + 1), 5000);
+    return () => window.clearInterval(timer);
+  }, [current?.id]);
+
   // Do not auto-save until opening a remote project has reached the local editor.
   // Atomic RPC rejects simultaneous writes against an older revision.
   useEffect(() => {
@@ -230,7 +238,7 @@ export default function CloudProjects({ snapshot, onOpenProject }: Props) {
       }
     }, 1200);
     return () => window.clearTimeout(timer);
-  }, [signature, current?.id, current?.revision, conflict, credentials, canWrite]);
+  }, [signature, current?.id, current?.revision, conflict, credentials, canWrite, retryTick]);
 
   async function run(action: () => Promise<void>) {
     setBusy(true); setError(''); setNotice('');
