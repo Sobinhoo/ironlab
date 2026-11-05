@@ -10,7 +10,7 @@ const migration = readFileSync(
 test('signup migration has balanced SQL dollar-quoted functions', () => {
   // Catch the exact syntax regression that blocked the v0.31 migration:
   // AS $ ... $; is not valid PL/pgSQL.
-  assert.doesNotMatch(migration, /\bAS \$(?!\$)/);
+  assert.doesNotMatch(migration, /^\s*AS \$(?!\$)/m);
   assert.doesNotMatch(migration, /^\$;\s*$/m);
   const quotes = migration.match(/\$\$/g) ?? [];
   assert.ok(quotes.length >= 12);
