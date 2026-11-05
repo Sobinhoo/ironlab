@@ -172,9 +172,15 @@ export default function CloudProjects({ snapshot, onOpenProject }: Props) {
     const poll = window.setInterval(() => {
       if (!cancelled) void reconcileRemote().catch(e => setError(String(e)));
     }, 5000);
+    const tokenTimer = window.setInterval(() => {
+      if (cancelled || !supabase) return;
+      try { void supabase.realtime.setAuth(credentials().auth.accessToken); }
+      catch { setOnline(false); }
+    }, 25000);
     return () => {
       cancelled = true;
       window.clearInterval(poll);
+      window.clearInterval(tokenTimer);
       setOnline(false);
       if (channel && supabase) void supabase.removeChannel(channel);
     };
