@@ -11,12 +11,25 @@ type Props = { snapshot: SavedProject; onOpenProject: (project: SavedProject) =>
 type Session = { access_token: string; expires_at: number; user: { id: string } };
 const sessionKey = 'ironlab.auth.session.v1';
 
-/** updatedAt changes on every render; it is not an edit to the shared document. */
+/** PostgreSQL jsonb reorders object keys. Compare canonical values, not key order.
+ * updatedAt also changes on every App render and must not trigger saves.
+ */
+function canonicalize(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, item]) => [key, canonicalize(item)])
+    );
+  }
+  return value;
+}
 function fingerprint(document: SavedProject): string {
-  return JSON.stringify({
+  return JSON.stringify(canonicalize({
     ...document,
     robot: { ...document.robot, updatedAt: null },
-  });
+  }));
 }
 
 export default function CloudProjects({ snapshot, onOpenProject }: Props) {
@@ -73,7 +86,16 @@ export default function CloudProjects({ snapshot, onOpenProject }: Props) {
   }, [credentials, teamId]);
 
   useEffect(() => { void refreshTeams().catch(e => setError(String(e))); }, [refreshTeams]);
+  useEffect(() => {
+    const timer = window.setInterval(() => void refreshTeams().catch(() => {}), 15000);
+    return () => window.clearInterval(timer);
+  }, [refreshTeams]);
   useEffect(() => { void refreshProjects().catch(e => setError(String(e))); }, [refreshProjects]);
+  useEffect(() => {
+    if (!teamId) return;
+    const timer = window.setInterval(() => void refreshProjects().catch(() => {}), 10000);
+    return () => window.clearInterval(timer);
+  }, [teamId, refreshProjects]);
   const refreshMembers = useCallback(async () => {
     if (!teamId) { setMembers([]); return; }
     const { auth } = credentials();
@@ -89,6 +111,18 @@ export default function CloudProjects({ snapshot, onOpenProject }: Props) {
   const canWrite = teamCreator || myTeamRole === 'admin' ||
     myTeamRole === 'mentor' || myTeamRole === 'member';
 
+
+  // Creating/opening a different local robot must not silently overwrite
+  // the shared project that was previously linked.
+  useEffect(() => {
+    if (!current || awaitingOpenRef.current) return;
+    if (snapshot.robot.id === current.document.robot.id) return;
+    setCurrent(null);
+    currentRef.current = null;
+    baselineRef.current = null;
+    setConflict(null);
+    setNotice('Outro robô aberto; projeto compartilhado desvinculado para evitar sobrescrita.');
+  }, [snapshot.robot.id, current]);
 
   const openShared = useCallback((project: CloudProject) => {
     awaitingOpenRef.current = fingerprint(project.document);
@@ -220,7 +254,7 @@ export default function CloudProjects({ snapshot, onOpenProject }: Props) {
       <button onClick={() => openShared(conflict)}>Abrir versão mais recente</button>
     </div>}
     <label>Equipe<select value={teamId} disabled={busy} onChange={e => {
-      setTeamId(e.target.value); setCurrent(null); currentRef.current = null;
+      setTeamId(e.target.value); setMembers([]); setCurrent(null); currentRef.current = null;
       baselineRef.current = null; awaitingOpenRef.current = null; setConflict(null);
     }}>
       <option value="">Selecione uma equipe</option>
