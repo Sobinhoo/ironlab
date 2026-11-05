@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
+import { OfflineContext } from '../auth/AuthGate';
 import type { SavedProject } from '../utils/projectStorage';
 import CloudProjects from './CloudProjects';
 
@@ -20,6 +21,7 @@ function readLibrary(): LibraryItem[] {
   catch { return []; }
 }
 export default function WorkspaceTools(p: Props) {
+  const offline = useContext(OfflineContext);
   const [panel, setPanel] = useState<'projects' | 'settings' | 'help' | null>(null);
   const [library, setLibrary] = useState(readLibrary);
   const [search, setSearch] = useState('');
@@ -80,7 +82,7 @@ export default function WorkspaceTools(p: Props) {
           <h3>Biblioteca local ({library.length})</h3><input placeholder="Buscar robôs..." value={search} onChange={e => setSearch(e.target.value)} />
           {library.filter(i => i.name.toLowerCase().includes(search.toLowerCase())).map(i => <div className="iron-project-entry" key={i.id}><div><strong>{i.name}</strong><small>{new Date(i.updatedAt).toLocaleString()}</small></div><div><button onClick={() => {p.onOpenProject(i.project);setPanel(null);}}>Abrir</button><button title="Excluir da biblioteca" onClick={() => {if(confirm(`Excluir ${i.name} da biblioteca local?`)) persist(library.filter(x => x.id !== i.id));}}>×</button></div></div>)}
           <p className="iron-panel-hint">A biblioteca local permanece neste dispositivo. A sincronização com Supabase é manual e independente.</p>
-          <CloudProjects snapshot={p.snapshot} onOpenProject={p.onOpenProject} />
+          {offline ? <p className="iron-panel-hint">Modo offline: projetos locais disponíveis. Entre na internet para sincronizar projetos compartilhados.</p> : <CloudProjects snapshot={p.snapshot} onOpenProject={p.onOpenProject} />}
         </div>
         {panel === 'settings' && <div className="iron-panel-section">
           <h3>Área de trabalho</h3>
