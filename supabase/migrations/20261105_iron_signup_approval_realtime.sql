@@ -62,6 +62,11 @@ BEGIN
     IF OLD.id IS DISTINCT FROM NEW.id OR OLD.created_at IS DISTINCT FROM NEW.created_at THEN
       RAISE EXCEPTION 'Immutable fields';
     END IF;
+    IF NEW.active AND NOT OLD.active AND NOT EXISTS (
+      SELECT 1 FROM auth.users u WHERE u.id=NEW.id AND u.email_confirmed_at IS NOT NULL
+    ) THEN
+      RAISE EXCEPTION 'Confirm the account email before approving access' USING ERRCODE='42501';
+    END IF;
     IF OLD.id=auth.uid() AND (NEW.active=false OR NEW.role<>OLD.role) THEN
       RAISE EXCEPTION 'Cannot suspend or demote yourself';
     END IF;
@@ -71,6 +76,29 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+-- Only staff members may see e-mail verification status. The general profiles
+-- SELECT policy continues to hide other users from non-administrators.
+CREATE OR REPLACE FUNCTION public.iron_admin_list_accounts()
+RETURNS TABLE (
+  id uuid, display_name text, role public.iron_role, active boolean,
+  email text, email_confirmed boolean
+)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = ''
+AS $
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.is_staff() THEN
+    RAISE EXCEPTION 'Admin access required' USING ERRCODE='42501';
+  END IF;
+  RETURN QUERY
+    SELECT p.id,p.display_name,p.role,p.active,u.email,
+           u.email_confirmed_at IS NOT NULL
+    FROM public.profiles p JOIN auth.users u ON u.id=p.id
+    ORDER BY p.display_name;
+END;
+$;
+REVOKE ALL ON FUNCTION public.iron_admin_list_accounts() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.iron_admin_list_accounts() TO authenticated;
 
 -- Users must be active to create teams. SECURITY DEFINER avoids profiles SELECT/RLS
 -- ambiguity inside the team creation policy.
