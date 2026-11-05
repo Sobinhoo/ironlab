@@ -107,6 +107,7 @@ import SessionGraph from './components/SessionGraph';
 import DiagnosticsCenter from './components/DiagnosticsCenter';
 import { evaluateMotorDiagnostics } from './utils/motorDiagnostics';
 import { planLiveHardwareMapping } from './utils/liveHardwareMapping';
+import { scopedStorageKey } from './utils/scopedStorage';
 import {
   fetchHubTelemetry,
   probeHubHealth,
@@ -281,7 +282,7 @@ function App() {
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(SESSION_KEY, JSON.stringify(sessions));
+      window.localStorage.setItem(scopedStorageKey(SESSION_KEY), JSON.stringify(sessions));
       setSessionStorageError('');
     } catch {
       setSessionStorageError(
