@@ -16,6 +16,7 @@ import '@xyflow/react/dist/style.css';
 import './App.css';
 import './workspace.css';
 import WorkspaceTools from './components/WorkspaceTools';
+import ReportsCenter from './components/ReportsCenter';
 
 import ControlHubNode from './components/ControlHubNode';
 
@@ -236,6 +237,7 @@ function App() {
   );
   const [graphMotor, setGraphMotor] = useState<Record<string, string>>({});
   const [diagnosticCenterOpen, setDiagnosticCenterOpen] = useState(false);
+  const [reportsOpen, setReportsOpen] = useState(false);
 
   const [diagnosticSettings, setDiagnosticSettings] = useState({
     minPower: 0.5,
@@ -1602,6 +1604,7 @@ function App() {
               ? ` • GRAVANDO (${activeSession.samples.length})`
               : ''}
           </button>
+          <button type="button" className="add-hub-button" onClick={() => setReportsOpen(true)}>RELATÓRIOS</button>
           <button
             type="button"
             className="add-hub-button"
@@ -2282,6 +2285,7 @@ function App() {
             </div>
           </div>
         )}
+        {reportsOpen && <ReportsCenter snapshot={currentSnapshot()} onClose={() => setReportsOpen(false)} />}
         {diagnosticCenterOpen && (
           <DiagnosticsCenter
             nodes={nodes}
