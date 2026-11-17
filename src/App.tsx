@@ -16,6 +16,7 @@ import '@xyflow/react/dist/style.css';
 import './App.css';
 import './workspace.css';
 import WorkspaceTools from './components/WorkspaceTools';
+import ReportsCenter from './components/ReportsCenter';
 
 import ControlHubNode from './components/ControlHubNode';
 
@@ -106,8 +107,11 @@ function createRecordId(): string {
 import SessionGraph from './components/SessionGraph';
 import DiagnosticsCenter from './components/DiagnosticsCenter';
 import { evaluateMotorDiagnostics } from './utils/motorDiagnostics';
+import { planLiveHardwareMapping } from './utils/liveHardwareMapping';
+import { scopedStorageKey } from './utils/scopedStorage';
 import {
   fetchHubTelemetry,
+  probeHubHealth,
   type LiveMotor,
   type LiveServo,
 } from './services/hubTelemetry';
@@ -233,6 +237,7 @@ function App() {
   );
   const [graphMotor, setGraphMotor] = useState<Record<string, string>>({});
   const [diagnosticCenterOpen, setDiagnosticCenterOpen] = useState(false);
+  const [reportsOpen, setReportsOpen] = useState(false);
 
   const [diagnosticSettings, setDiagnosticSettings] = useState({
     minPower: 0.5,
@@ -279,7 +284,7 @@ function App() {
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(SESSION_KEY, JSON.stringify(sessions));
+      window.localStorage.setItem(scopedStorageKey(SESSION_KEY), JSON.stringify(sessions));
       setSessionStorageError('');
     } catch {
       setSessionStorageError(
@@ -366,6 +371,19 @@ function App() {
         consecutiveFailures = 0;
         pollingDelay = profile === 'lab' ? 250 : 1000;
         const now = Date.now();
+        if (status === 'stale') {
+          lastTimestamp = null;
+          lastTimestampSeenAt = 0;
+          setLiveStatus('stale');
+          setLiveError('Control Hub acessível, mas a última telemetria está desatualizada. Verifique o OpMode.');
+          setLiveMotors([]);
+          setLiveServos([]);
+          setBatteryVoltage(null);
+          setLiveUpdatedAt(null);
+          setDiagnostics({});
+          diagnosticTimers.current = {};
+          return;
+        }
         // O servidor pode continuar online depois de o OpMode parar.
         // Não confundir HTTP disponível com telemetria ativa.
         if (status === 'waiting' || timestamp === null) {
@@ -542,6 +560,31 @@ function App() {
   function disconnectFromHub() {
     setConnectionEnabled(false);
   }
+
+  // A configuração visual é criada apenas uma vez por porta; o polling só atualiza telemetria.
+  // O usuário pode excluir um nó automático sem que ele seja recriado durante esta sessão.
+  const excludedAutoNodes = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (liveStatus !== 'connected') return;
+    const plan = planLiveHardwareMapping(
+      nodes, liveMotors, liveServos, createActuatorId, excludedAutoNodes.current
+    );
+    if (plan.nodes.length === 0) return;
+    setNodes(current => [...current, ...plan.nodes.filter(node =>
+      !current.some(existing => existing.id === node.id ||
+        (existing.type === node.type && existing.data.hubId === node.data.hubId &&
+          Number(existing.data.port) === Number(node.data.port))))]);
+    setEdges(current => [...current, ...plan.edges.filter(edge =>
+      !current.some(existing => existing.id === edge.id))]);
+    setActuatorHistory(current => {
+      const next = { ...current };
+      for (const node of plan.nodes) {
+        const id = String(node.data.actuatorId);
+        if (!next[id]) next[id] = createEmptyHistory(id);
+      }
+      return next;
+    });
+  }, [liveStatus, liveMotors, liveServos, nodes, setNodes, setEdges]);
 
   // =====================================================
 
@@ -1237,6 +1280,8 @@ function App() {
     if (!selectedNodeId) return;
 
     // Preserva o histórico por actuatorId.
+    const deleting = nodes.find(node => node.id === selectedNodeId);
+    if (deleting?.data.source === 'http-telemetry') excludedAutoNodes.current.add(selectedNodeId);
 
     setNodes((current) => current.filter((node) => node.id !== selectedNodeId));
 
@@ -1265,6 +1310,7 @@ function App() {
     if (!confirmed) return;
 
     deleteSavedProject();
+    excludedAutoNodes.current.clear();
 
     const now = new Date().toISOString();
 
@@ -1447,8 +1493,8 @@ function App() {
       const timeout = window.setTimeout(() => controller.abort(), 2500);
       const started = performance.now();
       try {
-        const response = await fetch(`http://${hubIp}:${hubPort}/`, { cache: 'no-store', signal: controller.signal });
-        if (response.ok && !cancelled) setPingMs(Math.round(performance.now() - started));
+        const health = await probeHubHealth(hubIp, Number(hubPort), controller.signal);
+        if (!cancelled) setPingMs(health === 'running' || health === 'legacy' ? Math.round(performance.now() - started) : null);
       } catch { if (!cancelled) setPingMs(null); }
       finally { clearTimeout(timeout); }
     };
@@ -1558,6 +1604,7 @@ function App() {
               ? ` • GRAVANDO (${activeSession.samples.length})`
               : ''}
           </button>
+          <button type="button" className="add-hub-button" onClick={() => setReportsOpen(true)}>RELATÓRIOS</button>
           <button
             type="button"
             className="add-hub-button"
@@ -1573,10 +1620,10 @@ function App() {
           </div>
           <div className="toolbar-group toolbar-project" aria-label="Gerenciar projeto">
           <label className="import-button">
-            IMPORTAR FTC
+            IMPORTAR FTC (LOG/XML)
             <input
               type="file"
-              accept=".txt,.log"
+              accept=".txt,.log,.xml"
               hidden
               onChange={(event) => {
                 const file = event.target.files?.[0];
@@ -2238,6 +2285,7 @@ function App() {
             </div>
           </div>
         )}
+        {reportsOpen && <ReportsCenter snapshot={currentSnapshot()} onClose={() => setReportsOpen(false)} />}
         {diagnosticCenterOpen && (
           <DiagnosticsCenter
             nodes={nodes}

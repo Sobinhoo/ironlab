@@ -27,7 +27,7 @@ Deno.serve(async request=>{
   // Create user with a temporary profile BEFORE sending the invite email.
   const {data:created,error:inviteError}=await admin.auth.admin.inviteUserByEmail(email,{data:{display_name:displayName}});
   if(inviteError||!created.user)return json({error:inviteError?.message||'Falha no convite'},400);
-  const {error:profileError}=await admin.from('profiles').insert({id:created.user.id,display_name:displayName,role,active:true});
+  const {error:profileError}=await admin.from('profiles').upsert({id:created.user.id,display_name:displayName,role,active:true},{onConflict:'id'});
   if(profileError)return json({error:`Usuário convidado, mas falhou a criação do perfil: ${profileError.message}`},500);
   await admin.from('audit_logs').insert({actor_id:user.id,target_id:created.user.id,action:'profile.invite',after_state:{role,display_name:displayName}});
   return json({ok:true});

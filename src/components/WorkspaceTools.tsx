@@ -1,5 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
+import { OfflineContext } from '../auth/AuthGate';
+import { scopedStorageKey } from '../utils/scopedStorage';
 import type { SavedProject } from '../utils/projectStorage';
+import CloudProjects from './CloudProjects';
 
 type Props = {
   robotName: string; saveStatus: string; snapshot: SavedProject;
@@ -15,10 +18,11 @@ type Props = {
 const KEY = 'ironlab-project-library-v1';
 type LibraryItem = { id: string; name: string; updatedAt: string; project: SavedProject };
 function readLibrary(): LibraryItem[] {
-  try { const data: unknown = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(data) ? data as LibraryItem[] : []; }
+  try { const data: unknown = JSON.parse(localStorage.getItem(scopedStorageKey(KEY)) || '[]'); return Array.isArray(data) ? data as LibraryItem[] : []; }
   catch { return []; }
 }
 export default function WorkspaceTools(p: Props) {
+  const offline = useContext(OfflineContext);
   const [panel, setPanel] = useState<'projects' | 'settings' | 'help' | null>(null);
   const [library, setLibrary] = useState(readLibrary);
   const [search, setSearch] = useState('');
@@ -29,7 +33,7 @@ export default function WorkspaceTools(p: Props) {
     const entry = `${new Date().toLocaleTimeString()} · ${p.connected ? 'Hub conectado' : 'Hub desconectado'} · ${p.pingMs ?? '—'} ms`;
     setLogs(prev => prev.at(-1) === entry ? prev : [...prev.slice(-39), entry]);
   }, [p.connected, p.pingMs]);
-  const persist = (items: LibraryItem[]) => { try {localStorage.setItem(KEY, JSON.stringify(items));setLibrary(items);setNotice('Biblioteca atualizada neste dispositivo.');} catch {setNotice('Sem espaço para salvar no navegador. Exporte seus projetos.');} };
+  const persist = (items: LibraryItem[]) => { try {localStorage.setItem(scopedStorageKey(KEY), JSON.stringify(items));setLibrary(items);setNotice('Biblioteca atualizada neste dispositivo.');} catch {setNotice('Sem espaço para salvar no navegador. Exporte seus projetos.');} };
   const saveAs = (duplicate = false) => {
     const name = window.prompt(duplicate ? 'Nome da cópia:' : 'Salvar projeto como:', duplicate ? `${p.robotName} — cópia` : p.robotName)?.trim();
     if (!name) return;
@@ -68,18 +72,19 @@ export default function WorkspaceTools(p: Props) {
         <button onClick={() => setPanel(panel === 'settings' ? null : 'settings')} title="Preferências e comunicação">⚙</button>
       </div>
     </nav>
-    {panel && <div className="iron-panel-backdrop" onClick={() => setPanel(null)}>
+    <div className="iron-panel-backdrop" style={{display: panel ? undefined : "none"}} onClick={() => setPanel(null)}>
       <aside className="iron-workspace-panel" onClick={e => e.stopPropagation()} aria-label={panel === 'settings' ? 'Configurações' : panel === 'projects' ? 'Projetos' : 'Ajuda'}>
         <div className="iron-panel-heading"><div><small>IRONLAB / WORKSPACE</small><h2>{panel === 'projects' ? 'Projetos e arquivos' : panel === 'settings' ? 'Preferências' : 'Centro de ajuda'}</h2></div><button onClick={() => setPanel(null)} aria-label="Fechar">×</button></div>
         {notice && <p className="iron-panel-notice" role="status">{notice}</p>}
-        {panel === 'projects' && <div className="iron-panel-section">
+        <div className="iron-panel-section" style={{display: panel === 'projects' ? undefined : 'none'}}>
           <label>Projeto atual<input value={p.robotName} onChange={e => p.onRename(e.target.value)} /></label>
           <div className="iron-panel-actions"><button onClick={p.onSave}>Salvar</button><button onClick={() => saveAs()}>Salvar como</button><button onClick={() => saveAs(true)}>Duplicar</button></div>
           <div className="iron-panel-actions"><button onClick={exportJson}>Exportar JSON</button><label className="iron-file-button">Importar JSON<input hidden type="file" accept=".json" onChange={e => {void importJson(e.target.files?.[0]);e.target.value='';}} /></label></div>
           <h3>Biblioteca local ({library.length})</h3><input placeholder="Buscar robôs..." value={search} onChange={e => setSearch(e.target.value)} />
           {library.filter(i => i.name.toLowerCase().includes(search.toLowerCase())).map(i => <div className="iron-project-entry" key={i.id}><div><strong>{i.name}</strong><small>{new Date(i.updatedAt).toLocaleString()}</small></div><div><button onClick={() => {p.onOpenProject(i.project);setPanel(null);}}>Abrir</button><button title="Excluir da biblioteca" onClick={() => {if(confirm(`Excluir ${i.name} da biblioteca local?`)) persist(library.filter(x => x.id !== i.id));}}>×</button></div></div>)}
-          <p className="iron-panel-hint">A biblioteca usa o armazenamento deste navegador. Para transferência ou backup, exporte o JSON. Ainda não há sincronização de projetos com Supabase.</p>
-        </div>}
+          <p className="iron-panel-hint">A biblioteca local permanece neste dispositivo. A sincronização com Supabase é manual e independente.</p>
+          {offline ? <p className="iron-panel-hint">Modo offline: projetos locais disponíveis. Entre na internet para sincronizar projetos compartilhados.</p> : <CloudProjects snapshot={p.snapshot} onOpenProject={p.onOpenProject} />}
+        </div>
         {panel === 'settings' && <div className="iron-panel-section">
           <h3>Área de trabalho</h3>
           <label className="iron-toggle"><input type="checkbox" checked={p.snapToGrid} onChange={e => p.onSnapChange(e.target.checked)} /> Grade magnética (20 px)</label>
@@ -101,6 +106,6 @@ export default function WorkspaceTools(p: Props) {
           <p className="iron-panel-hint">O registro acima é local e temporário. Não substitui logs do Robot Controller.</p>
         </div>}
       </aside>
-    </div>}
+    </div>
   </>;
 }
