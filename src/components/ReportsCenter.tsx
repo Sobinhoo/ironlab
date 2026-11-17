@@ -19,7 +19,7 @@ function cell(text: string, header = false, width?: number) {
     borders: cellBorders,
     shading: header ? { fill: '18382A', type: ShadingType.CLEAR } : undefined,
     margins: { top: 90, bottom: 90, left: 110, right: 110 },
-    children: [new Paragraph({ children: [new TextRun({ text: text || '—', bold: header, color: header ? 'FFFFFF' : '24352C', size: header ? 18 : 17, font: 'Aptos' })] })],
+    children: (text || '—').split('\\n').map((line) => new Paragraph({ children: [new TextRun({ text: line || '—', bold: header, color: header ? 'FFFFFF' : '24352C', size: header ? 18 : 17, font: 'Aptos' })] })),
   });
 }
 
@@ -48,7 +48,7 @@ export default function ReportsCenter({ snapshot, onClose }: Props) {
         ? (from ? new Date(from + 'T00:00:00').toLocaleDateString('pt-BR') : 'Início não definido') + ' até ' + (to ? new Date(to + 'T00:00:00').toLocaleDateString('pt-BR') : 'Hoje')
         : 'Todo o histórico disponível';
       const children: (Paragraph | Table)[] = [
-        new Paragraph({ children: [new TextRun({ text: 'IRONLAB  /  MCI LAB', bold: true, color: '18784B', size: 20, characterSpacing: 30 })], spacing: { after: 180 } }),
+        new Paragraph({ children: [new TextRun({ text: 'IRONLAB  /  MCI LAB', bold: true, color: '18784B', size: 20 })], spacing: { after: 180 } }),
         new Paragraph({ text: kindLabels[kind], heading: HeadingLevel.TITLE, spacing: { after: 100 } }),
         new Paragraph({ children: [new TextRun({ text: snapshot.robot.name, bold: true, size: 26, color: '18382A' })], spacing: { after: 80 } }),
         new Paragraph({ text: 'Emitido em ' + issuedAt.toLocaleString('pt-BR') + '  •  Projeto ' + snapshot.robot.id, style: 'Caption', spacing: { after: 240 } }),
@@ -64,15 +64,15 @@ export default function ReportsCenter({ snapshot, onClose }: Props) {
         new Paragraph({ text: '3. Histórico detalhado', heading: HeadingLevel.HEADING_1 }),
       ];
       const rows = [
-        new TableRow({ tableHeader: true, children: [cell('Data', true, 1450), cell('Componente / porta', true, 2300), cell('Tipo / situação', true, 2300), cell('Registro e descrição', true, 5310)] }),
+        new TableRow({ tableHeader: true, children: [cell('Data', true, 1250), cell('Componente / porta', true, 1900), cell('Tipo / situação', true, 1800), cell('Registro e descrição', true, 5256)] }),
         ...entries.map((entry) => new TableRow({ cantSplit: true, children: [
-          cell(formatReportDate(entry.createdAt), false, 1450),
-          cell(entry.componentName + '\n' + entry.hubName + ' · ' + entry.portLabel, false, 2300),
-          cell(formatMaintenanceType(entry.type) + '\n' + formatMaintenanceStatus(entry.status), false, 2300),
-          cell(entry.title + '\n' + (entry.description || 'Sem descrição registrada') + (entry.relatedIssueTitle ? '\nOcorrência relacionada: ' + entry.relatedIssueTitle : '') + (entry.resolvedAt ? '\nResolvido em: ' + formatReportDate(entry.resolvedAt) : ''), false, 5310),
+          cell(formatReportDate(entry.createdAt), false, 1250),
+          cell(entry.componentName + '\n' + entry.hubName + ' · ' + entry.portLabel, false, 1900),
+          cell(formatMaintenanceType(entry.type) + '\n' + formatMaintenanceStatus(entry.status), false, 1800),
+          cell(entry.title + '\n' + (entry.description || 'Sem descrição registrada') + (entry.relatedIssueTitle ? '\nOcorrência relacionada: ' + entry.relatedIssueTitle : '') + (entry.resolvedAt ? '\nResolvido em: ' + formatReportDate(entry.resolvedAt) : ''), false, 5256),
         ] })),
       ];
-      children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, columnWidths: [1450, 2300, 2300, 5310], rows }));
+      children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, columnWidths: [1250, 1900, 1800, 5256], rows }));
       children.push(
         new Paragraph({ text: '4. Observações e responsabilidade', heading: HeadingLevel.HEADING_1, spacing: { before: 280 } }),
         new Paragraph({ text: 'Este documento consolida exclusivamente os registros encontrados no projeto selecionado no momento da emissão.' }),
