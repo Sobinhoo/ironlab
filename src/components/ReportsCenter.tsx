@@ -19,7 +19,7 @@ function cell(text: string, header = false, width?: number) {
     borders: cellBorders,
     shading: header ? { fill: '18382A', type: ShadingType.CLEAR } : undefined,
     margins: { top: 90, bottom: 90, left: 110, right: 110 },
-    children: (text || '—').split('\\n').map((line) => new Paragraph({ children: [new TextRun({ text: line || '—', bold: header, color: header ? 'FFFFFF' : '24352C', size: header ? 18 : 17, font: 'Aptos' })] })),
+    children: (text || '—').split('\n').map((line) => new Paragraph({ children: [new TextRun({ text: line || '—', bold: header, color: header ? 'FFFFFF' : '24352C', size: header ? 18 : 17, font: 'Aptos' })] })),
   });
 }
 
